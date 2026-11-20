@@ -342,9 +342,18 @@ Error: Workload "web": image nginx:does-not-exist was not found in its registry;
 revision 3 failed; nothing that was running changed and revision 2 is still serving
 ```
 
-The same holds when a replaced workload's new container never becomes healthy. When a recreate
-fails, the new container is stopped (not removed, so `karga logs` still works), the revision is
-marked failed and the previous revision stays current; go back with a rollback.
+The same holds when a replaced workload's new container never becomes healthy. A recreate has
+already replaced the old container: when the new one does not get ready, it is stopped (not
+removed, so `karga logs` still works), the revision is marked failed, and the workload is down until
+you roll back. A container that keeps crashing fails after 3 restarts, not at the timeout:
+
+```console
+$ karga upgrade demo shop --reuse-values --set image.tag=broken
+Error: workload demo-web-9cc139f0 keeps restarting (3 restarts, last exit code 3)
+revision 3 failed and workload web is down: its revision 2 container was replaced. Run 'karga rollback demo 2' to start revision 2 again
+```
+
+The rollback names its revision: `karga rollback demo` alone goes to the revision before 2.
 
 ### History, diff and rollback
 
@@ -904,6 +913,8 @@ the client says the user agreed, so no client skips the question.
 | `is a tcp listener and takes no host` / `needs a host` / `needs tls.secret` | The exposure does not fit the listener's protocol. |
 | `image ... was not found in its registry` | Wrong repository or tag; nothing running changed. |
 | `workload X is unhealthy: http check on ... failed` | The application did not answer its health check; `karga logs` the stopped container. |
+| `workload X keeps restarting (N restarts, last exit code C)` | The container crashes as it starts; `karga logs` it. |
+| `... and workload W is down: its revision N container was replaced` | A recreate failed after the old container went: run the `karga rollback <release> N` it names. |
 | `another operation is running on this release` | Another karga command works on the release; wait for it. |
 | `a previous operation on this release was interrupted` | An operation was left by a process that is gone (karga-server finishes its own when it starts); check `karga status`, then rerun with `--force`. |
 | `gateway: proxy does not route to ... : <reason>` | The gateway did not accept or reach the new backend; the reason (and Envoy's own message, if it refused the configuration) follows. |

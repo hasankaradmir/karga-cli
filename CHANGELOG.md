@@ -62,6 +62,10 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   that puts an API and its database online on a domain.
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
+### Fixed
+- README and USAGE said a failed recreate left the previous revision serving; its container was
+  replaced, so the workload is down until the rollback the error names (karga-server).
+
 ## [0.1.1] - 2026-11-18
 
 First release (the v0.1.0 tag has no release: its release workflow failed).
