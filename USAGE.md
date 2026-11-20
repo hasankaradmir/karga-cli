@@ -674,7 +674,9 @@ Rules to know:
 
 - **Health checks.** `exec` runs a command inside the container, so the image needs the tool (curl,
   wget, pg_isready...). `tcp` and `http` are run by karga from the host and need nothing in the
-  image.
+  image. The workload's check is the only one: the release proxy and the gateway check nothing
+  themselves. A `tcp` check opens a connection and closes it without a word; services that punish
+  those (sshd since OpenSSH 9.8, anything behind fail2ban) need an `http` or `exec` check.
 - **Volumes.** A workload that mounts a volume read-write, or keeps an image VOLUME in an anonymous
   volume (see [section 8](#what-happens-to-data-on-an-upgrade)), is always recreated: two
   containers writing the same data are unsafe.

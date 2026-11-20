@@ -17,6 +17,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   `listener list` shows them in OPTIONS.
 
 ### Changed
+- USAGE: the workload's health check is the only one; a `tcp` check's empty connection is punished
+  by sshd and fail2ban, so those need `http` or `exec` (karga-server D44).
 - USAGE: the gateway reaches release proxies on the `karga-edge` network; proxies publish no port
   (karga-server D42).
 - Gateway listeners `http` and `https` instead of `web` and `websecure` in `karga create`, the
