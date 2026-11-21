@@ -655,7 +655,8 @@ $ karga logs --gateway -f
 [2026-11-17T04:58:08.117Z] "GET /logged HTTP/1.1" 404 - 0 124 2 1 "192.0.2.57" "Go-http-client/1.1" ...
 ```
 
-It is off by default to keep the log small; turning it on or off does not interrupt traffic.
+It is off by default to keep the log small; turning it on or off does not interrupt traffic. A
+request shows up within about a second. Times are UTC (the `Z`).
 
 ## 7. Upgrades without downtime
 
