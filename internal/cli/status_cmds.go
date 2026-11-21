@@ -267,6 +267,10 @@ func eventRows(ops []api.Operation) [][]string {
 			}
 			what = strings.Join(parts, ", ")
 		}
+		if d := time.Duration(op.Downtime); d > 0 {
+			// How long a volume backup or restore kept its workloads stopped.
+			what = strings.TrimPrefix(what+", down "+d.Round(100*time.Millisecond).String(), ", ")
+		}
 		what = truncate(what, 100)
 		user := op.Actor
 		if user == "" {

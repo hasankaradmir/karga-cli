@@ -53,9 +53,12 @@ type fake struct {
 	uninst   *api.UninstallRequest
 	pkg      *packages.Package // loaded from the archive the CLI sent
 	restored string
-	execCmd  []string
-	stdin    string
-	calls    []string
+	// backupReq and restoreReq are the last volume requests.
+	backupReq  api.VolumeBackupRequest
+	restoreReq api.VolumeRestoreRequest
+	execCmd    []string
+	stdin      string
+	calls      []string
 }
 
 func (f *fake) call(name string) {
@@ -160,15 +163,28 @@ func (f *fake) Exec(_ context.Context, req api.ExecRequest) (int, error) {
 	return f.exitCode, f.err
 }
 
-func (f *fake) BackupVolume(_ context.Context, _ api.VolumeBackupRequest, w io.Writer) error {
+func (f *fake) BackupVolume(_ context.Context, req api.VolumeBackupRequest, w io.Writer) (*api.VolumeResult, error) {
 	_, _ = io.WriteString(w, f.backup)
-	return f.err
+	f.backupReq = req
+	return &api.VolumeResult{Release: req.Release, Volume: req.Volume, Stopped: []string{"db", "app"}, Downtime: api.Duration(1200 * time.Millisecond)}, f.err
 }
 
-func (f *fake) RestoreVolume(_ context.Context, _ api.VolumeRestoreRequest, r io.Reader) error {
+func (f *fake) RestoreVolume(_ context.Context, req api.VolumeRestoreRequest, r io.Reader, progress func(api.Event)) (*api.VolumeResult, error) {
 	b, _ := io.ReadAll(r)
-	f.restored = string(b)
-	return f.err
+	f.restored, f.restoreReq = string(b), req
+	if progress != nil {
+		progress(api.Event{Kind: "Workload", Name: "db", Phase: api.PhaseStop, Detail: "stopping r-db"})
+	}
+	res := &api.VolumeResult{Release: req.Release, Volume: req.Volume, Stopped: []string{"db"}, Downtime: api.Duration(3 * time.Second)}
+	if !req.NoRestorePoint {
+		res.RestorePoint = "/var/lib/karga/restore-points/r/data.tar.gz"
+	}
+	return res, f.err
+}
+
+func (f *fake) UndoRestoreVolume(_ context.Context, req api.VolumeUndoRestoreRequest, _ func(api.Event)) (*api.VolumeResult, error) {
+	f.call("undo-restore " + req.Release + " " + req.Volume)
+	return &api.VolumeResult{Release: req.Release, Volume: req.Volume, Stopped: []string{"db"}, Downtime: api.Duration(2 * time.Second)}, f.err
 }
 
 func (f *fake) Reconcile(context.Context, api.ReconcileRequest) (*api.ReconcileResult, error) {

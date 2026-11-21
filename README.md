@@ -123,7 +123,8 @@ logs). The state lives in karga-server's `KARGA_HOME` (`/var/lib/karga` for the 
 | `gateway listener list\|add\|set\|remove` | The ports Services can be exposed on: `add <name> --port <port> --protocol tcp\|http\|https`; `set <name>` changes its timeouts, body and rate limits and PROXY protocol; a listener in use cannot be removed |
 | `gateway set listen <ip>[,<ip>]` | Where every listener binds (default `127.0.0.1`; `0.0.0.0` is every interface) |
 | `gateway set access-log on\|off` | Log every request and connection the gateway handles (off by default) |
-| `volume backup\|restore <release> <volume> <file>` | Copy a volume's files to/from a gzipped tar; `--stop` for a consistent backup, `--from-other-volume` to restore another volume's backup |
+| `volume backup\|restore <release> <volume> <file>` | Copy a volume's files to a gzipped tar (its workloads stopped meanwhile; `--live` while they run), or replace them with one (`--merge`, `--no-restore-point`, `--from-other-volume`) |
+| `volume undo-restore <release> <volume>` | Put back the files a volume had before its last restore |
 | `completion bash\|zsh\|fish\|powershell` | Shell completion |
 
 `install`, `upgrade` and `rollback` take `--dry-run`, `--verbose` (every changed field of the
