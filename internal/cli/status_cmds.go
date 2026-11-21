@@ -84,11 +84,11 @@ func (a *app) printStatus(ctx context.Context, s api.Backend, name string) (*api
 	}
 	r := rep.Release
 	_, _ = fmt.Fprintf(a.stdout, "Release:  %s\nStatus:   %s\nRevision: %d\nPackage:  %s %s\nUpdated:  %s\n",
-		r.Name, a.paint(string(r.Status)), r.CurrentRevision, r.PackageName, r.PackageVersion, ago(r.UpdatedAt))
+		r.Name, a.paint(string(r.Status)), r.CurrentRevision, r.PackageName, r.PackageVersion, when(r.UpdatedAt))
 	if rc := rep.Reconcile; rc != nil {
 		line := "never needed"
 		if !rc.Last.IsZero() {
-			line = ago(rc.Last) + ", " + rc.Status
+			line = when(rc.Last) + ", " + rc.Status
 			if rc.Error != "" {
 				line += ": " + rc.Error
 			}
@@ -272,7 +272,7 @@ func eventRows(ops []api.Operation) [][]string {
 		if user == "" {
 			user = "-" // recorded before karga-server knew its clients
 		}
-		rows = append(rows, []string{op.StartedAt.Local().Format("2006-01-02 15:04:05"), op.Release, op.Type, strconv.Itoa(op.Revision), user, string(op.Status), what})
+		rows = append(rows, []string{when(op.StartedAt), op.Release, op.Type, strconv.Itoa(op.Revision), user, string(op.Status), what})
 	}
 	return rows
 }

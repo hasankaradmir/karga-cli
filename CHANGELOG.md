@@ -64,6 +64,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- Times in `list`, `history`, `status`, `events` and `gateway history` had no zone, while the
+  gateway's access log is UTC; they show their offset now (`2026-11-17 19:01:09 +03:00`).
 - `history` put a failed revision's whole error in DESCRIPTION (one row ~300 columns wide); the
   table cuts it at 60 characters, as `events` cuts WHAT at 100. `-o json` and `-o yaml` keep it whole.
 - `--verbose` plans and `karga diff` showed an added field as `path: value`, like nothing changed;

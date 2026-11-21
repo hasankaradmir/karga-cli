@@ -1,3 +1,3 @@
-REVISION  STATUS    PACKAGE  VERSION  CREATED              DESCRIPTION       CHANGES
-1         deployed  shop     1.0.0    2026-11-18 09:30:00  Install complete  first
-2         deployed  shop     1.1.0    2026-11-18 10:30:00  Upgrade complete  +1 ~1 -0, 1 values
+REVISION  STATUS    PACKAGE  VERSION  CREATED                     DESCRIPTION       CHANGES
+1         deployed  shop     1.0.0    2026-11-18 09:30:00 +00:00  Install complete  first
+2         deployed  shop     1.1.0    2026-11-18 10:30:00 +00:00  Upgrade complete  +1 ~1 -0, 1 values

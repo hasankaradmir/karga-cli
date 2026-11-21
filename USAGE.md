@@ -241,7 +241,7 @@ Workload  web    demo-web-8b1d04e7          1         applied  running  0       
 
 $ karga list
 NAME  REVISION  STATUS    PACKAGE  VERSION  UPDATED
-demo  1         deployed  shop     0.1.0    2026-11-17 17:59:08
+demo  1         deployed  shop     0.1.0    2026-11-17 17:59:08 +03:00
 ```
 
 [Section 6](#6-services-and-the-gateway) exposes it on the host. `karga exec demo web` without a
@@ -374,10 +374,10 @@ The rollback names its revision: `karga rollback demo` alone goes to the revisio
 
 ```console
 $ karga history demo --diff
-REVISION  STATUS      PACKAGE  VERSION  CREATED              DESCRIPTION       CHANGES
-1         superseded  shop     0.1.0    2026-11-17 13:18:00  Install complete  first
-2         deployed    shop     0.1.0    2026-11-17 13:18:06  Upgrade complete  +0 ~1 -0, 1 values
-3         failed      shop     0.1.0    2026-11-17 13:18:21  Upgrade failed: ...
+REVISION  STATUS      PACKAGE  VERSION  CREATED                     DESCRIPTION       CHANGES
+1         superseded  shop     0.1.0    2026-11-17 13:18:00 +03:00  Install complete  first
+2         deployed    shop     0.1.0    2026-11-17 13:18:06 +03:00  Upgrade complete  +0 ~1 -0, 1 values
+3         failed      shop     0.1.0    2026-11-17 13:18:21 +03:00  Upgrade failed: ...
 
 $ karga diff demo 1
 Release demo: revision 1 -> 2
@@ -508,10 +508,10 @@ $ karga gateway apply -f gateway.yaml
 gateway settings applied (revision 4)
 
 $ karga gateway history
-REVISION        TIME                 ACTOR  SOURCE
-2               2026-11-19 10:02:11  alice  listener add pg
-3               2026-11-19 10:14:40  alice  apply
-4 (in force)    2026-11-19 10:31:05  alice  apply
+REVISION        TIME                        ACTOR  SOURCE
+2               2026-11-19 10:02:11 +03:00  alice  listener add pg
+3               2026-11-19 10:14:40 +03:00  alice  apply
+4 (in force)    2026-11-19 10:31:05 +03:00  alice  apply
 
 $ karga gateway rollback          # the revision before; or: karga gateway rollback 2
 
@@ -960,13 +960,13 @@ $ docker ps --filter name=demo-web --format "{{.Names}} {{.Status}}"
 demo-web Up 1 second
 
 $ karga events demo
-TIME                 RELEASE  OPERATION  REVISION  USER          STATUS     WHAT
-2026-11-17 19:01:09  demo     install    1         alice         succeeded  create network net, create workload web, create service web, create proxy proxy
-2026-11-17 19:01:17  demo     reconcile  1         karga-server  succeeded  create workload web
+TIME                        RELEASE  OPERATION  REVISION  USER          STATUS     WHAT
+2026-11-17 19:01:09 +03:00  demo     install    1         alice         succeeded  create network net, create workload web, create service web, create proxy proxy
+2026-11-17 19:01:17 +03:00  demo     reconcile  1         karga-server  succeeded  create workload web
 
 $ karga status demo
 ...
-Repaired: 2026-11-17 19:01:17, succeeded
+Repaired: 2026-11-17 19:01:17 +03:00, succeeded
 ```
 
 What it never does:
@@ -1373,9 +1373,9 @@ Release "notes" upgraded (revision 2).
   update workload api (replace)
 
 $ karga history notes
-REVISION  STATUS      PACKAGE  VERSION  CREATED              DESCRIPTION
-1         superseded  notes    1.0.0    2026-11-18 12:00:42  Install complete
-2         deployed    notes    1.0.0    2026-11-18 12:02:36  Upgrade complete
+REVISION  STATUS      PACKAGE  VERSION  CREATED                     DESCRIPTION
+1         superseded  notes    1.0.0    2026-11-18 12:00:42 +03:00  Install complete
+2         deployed    notes    1.0.0    2026-11-18 12:02:36 +03:00  Upgrade complete
 $ karga rollback notes 1
 Release "notes" rolled back (revision 3).
   update workload api (replace)

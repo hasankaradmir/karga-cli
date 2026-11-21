@@ -2,8 +2,8 @@ Release:  r
 Status:   deployed
 Revision: 3
 Package:  shop 1.0.0
-Updated:  2026-11-18 09:30:00
-Repaired: 2026-11-18 09:30:00, succeeded
+Updated:  2026-11-18 09:30:00 +00:00
+Repaired: 2026-11-18 09:30:00 +00:00, succeeded
 
 KIND      NAME    RUNTIME NAME   REVISION  DESIRED  ACTUAL   RESTARTS  HEALTH/BACKEND
 Workload  web     r-web          3         applied  running  4         healthy
