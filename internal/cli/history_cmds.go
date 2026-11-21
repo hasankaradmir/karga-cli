@@ -13,7 +13,9 @@ import (
 	"github.com/hasankaradmir/karga-sdk/api"
 )
 
-func ago(t time.Time) string { return t.Local().Format("2006-01-02 15:04:05") }
+// when writes a time in local time with its UTC offset, so it can be compared with logs in UTC
+// (the gateway's access log) or from another host.
+func when(t time.Time) string { return t.Local().Format("2006-01-02 15:04:05 -07:00") }
 
 func newHistoryCmd(a *app) *cobra.Command {
 	var withDiff bool
@@ -36,7 +38,7 @@ func newHistoryCmd(a *app) *cobra.Command {
 			}
 			var rows [][]string
 			for i, r := range revs {
-				row := []string{strconv.Itoa(r.Number), string(r.Status), r.PackageName, r.PackageVersion, ago(r.CreatedAt), r.Description}
+				row := []string{strconv.Itoa(r.Number), string(r.Status), r.PackageName, r.PackageVersion, when(r.CreatedAt), truncate(r.Description, 60)}
 				if withDiff {
 					row = append(row, changeSummary(cmd.Context(), s, revs, i))
 				}
@@ -81,7 +83,7 @@ func newListCmd(a *app) *cobra.Command {
 			}
 			var rows [][]string
 			for _, r := range rels {
-				rows = append(rows, []string{r.Name, strconv.Itoa(r.CurrentRevision), string(r.Status), r.PackageName, r.PackageVersion, ago(r.UpdatedAt)})
+				rows = append(rows, []string{r.Name, strconv.Itoa(r.CurrentRevision), string(r.Status), r.PackageName, r.PackageVersion, when(r.UpdatedAt)})
 			}
 			return a.table("NAME\tREVISION\tSTATUS\tPACKAGE\tVERSION\tUPDATED", rows)
 		},

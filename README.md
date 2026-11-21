@@ -140,7 +140,7 @@ redis/
 ├── values.yaml           # defaults
 ├── values.schema.json    # optional JSON Schema, checked before rendering
 ├── README.md
-├── templates/            # *.yaml render to resources; _*.tpl only hold named templates
+├── templates/            # *.yaml render to resources; _*.tpl only hold named templates; .* are ignored
 ├── files/                # read from templates with .Files.Get / .Files.Glob
 └── .kargaignore          # optional: paths left out of the package (one pattern per line)
 ```
@@ -269,8 +269,9 @@ Traffic goes through karga's Envoys: a release proxy per release with Services, 
 gateway. How they route, switch a replace without losing requests, serve TLS and what they cost is
 in karga-server's [README](https://github.com/hasankaradmir/karga-server#traffic-through-kargas-envoys).
 
-If a recreate fails, the failed container is stopped (but kept for `docker logs`), the revision is
-marked failed and the previous revision stays current. Run `karga rollback <release>` to go back.
+If a recreate fails, the failed container is stopped (but kept for `docker logs`) and the revision is
+marked failed. The previous revision stays current, but its container was replaced: the workload is
+down until you run the rollback the error names (`karga rollback <release> <revision>`).
 Rollback re-applies the stored desired state; it cannot undo data changes such as database
 migrations. Changing a Network or Volume spec in an upgrade is refused.
 

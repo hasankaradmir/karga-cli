@@ -6,6 +6,7 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- USAGE §5: image pulls show their progress (karga-server).
 - USAGE: exposure `pathType` (prefix, by segment, or exact) and `to` (karga-server D43).
 - `karga gateway edit`: the settings in force in `$KARGA_EDITOR`/`$EDITOR`; a document with
   problems opens again with them on top; saving it unchanged gives up and keeps the file.
@@ -17,6 +18,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   `listener list` shows them in OPTIONS.
 
 ### Changed
+- USAGE: the workload's health check is the only one; a `tcp` check's empty connection is punished
+  by sshd and fail2ban, so those need `http` or `exec` (karga-server D44).
 - USAGE: the gateway reaches release proxies on the `karga-edge` network; proxies publish no port
   (karga-server D42).
 - Gateway listeners `http` and `https` instead of `web` and `websecure` in `karga create`, the
@@ -59,6 +62,22 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   installs them from `file://`. USAGE: requirements, installing from source, and a new section 15
   that puts an API and its database online on a domain.
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
+
+### Fixed
+- A user outside the `karga` group got `karga-server is not running` (exit 3) though it ran; it is
+  `permission denied on /run/karga/karga.sock` (exit 1) now (karga-sdk).
+- USAGE §13 and README: files in `templates/` whose name starts with `.` are ignored (karga-sdk);
+  a macOS `._*` file failed `lint` with `yaml: control characters are not allowed`.
+- Times in `list`, `history`, `status`, `events` and `gateway history` had no zone, while the
+  gateway's access log is UTC; they show their offset now (`2026-11-17 19:01:09 +03:00`).
+- `history` put a failed revision's whole error in DESCRIPTION (one row ~300 columns wide); the
+  table cuts it at 60 characters, as `events` cuts WHAT at 100. `-o json` and `-o yaml` keep it whole.
+- `--verbose` plans and `karga diff` showed an added field as `path: value`, like nothing changed;
+  it is `path: (added) -> value` now.
+- USAGE §6: a request shows up in the gateway access log within about a second (karga-server), and
+  its times are UTC.
+- README and USAGE said a failed recreate left the previous revision serving; its container was
+  replaced, so the workload is down until the rollback the error names (karga-server).
 
 ## [0.1.1] - 2026-11-18
 

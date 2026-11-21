@@ -93,7 +93,7 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 				if i == len(revs)-1 {
 					mark = " (in force)"
 				}
-				rows = append(rows, []string{strconv.Itoa(r.Revision) + mark, r.Time.Local().Format("2006-01-02 15:04:05"), r.Actor, r.Source})
+				rows = append(rows, []string{strconv.Itoa(r.Revision) + mark, when(r.Time), r.Actor, r.Source})
 			}
 			return a.table("REVISION\tTIME\tACTOR\tSOURCE", rows)
 		},

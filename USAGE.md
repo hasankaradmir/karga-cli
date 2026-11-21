@@ -241,7 +241,7 @@ Workload  web    demo-web-8b1d04e7          1         applied  running  0       
 
 $ karga list
 NAME  REVISION  STATUS    PACKAGE  VERSION  UPDATED
-demo  1         deployed  shop     0.1.0    2026-11-17 17:59:08
+demo  1         deployed  shop     0.1.0    2026-11-17 17:59:08 +03:00
 ```
 
 [Section 6](#6-services-and-the-gateway) exposes it on the host. `karga exec demo web` without a
@@ -305,7 +305,8 @@ Revision: 1 -> 2
 0 to create, 1 to update, 0 to delete, 3 unchanged. --verbose shows the changed fields.
 ```
 
-`--verbose` lists every changed field. The text in parentheses is the update strategy and, when a
+`--verbose` lists every changed field (`old -> new`, `(added) -> new`, `old -> (removed)`; a Secret
+value only as `(changed)`). The text in parentheses is the update strategy and, when a
 workload asked for `replace` but cannot have it, why:
 
 - **recreate**: the new container is created next to the old one, then the old one stops and the
@@ -334,7 +335,21 @@ Release "demo" upgraded (revision 2).
   update workload web (replace)
 ```
 
-Images are pulled before anything running is touched. A tag that does not exist changes nothing:
+Images are pulled before anything running is touched. While Docker pulls one, every two seconds a
+line says how far it got (the total grows as Docker learns the image's layers):
+
+```console
+$ karga install db examples/postgres --set database.password=s3cret-pw
+[  0s] workload postgres: image postgres:17 (if-not-present)
+[  2s] workload postgres: pulling postgres:17 (2s)
+[  4s] workload postgres: pulling postgres:17: 57MB/165MB (4s)
+[  6s] workload postgres: pulling postgres:17: 142MB/171MB (6s)
+[  8s] workload postgres: pulling postgres:17: 171MB/171MB (8s)
+[  9s] network postgres-network: create done
+...
+```
+
+A tag that does not exist changes nothing:
 
 ```console
 $ karga upgrade demo shop --reuse-values --set image.tag=does-not-exist
@@ -342,18 +357,27 @@ Error: Workload "web": image nginx:does-not-exist was not found in its registry;
 revision 3 failed; nothing that was running changed and revision 2 is still serving
 ```
 
-The same holds when a replaced workload's new container never becomes healthy. When a recreate
-fails, the new container is stopped (not removed, so `karga logs` still works), the revision is
-marked failed and the previous revision stays current; go back with a rollback.
+The same holds when a replaced workload's new container never becomes healthy. A recreate has
+already replaced the old container: when the new one does not get ready, it is stopped (not
+removed, so `karga logs` still works), the revision is marked failed, and the workload is down until
+you roll back. A container that keeps crashing fails after 3 restarts, not at the timeout:
+
+```console
+$ karga upgrade demo shop --reuse-values --set image.tag=broken
+Error: workload demo-web-9cc139f0 keeps restarting (3 restarts, last exit code 3)
+revision 3 failed and workload web is down: its revision 2 container was replaced. Run 'karga rollback demo 2' to start revision 2 again
+```
+
+The rollback names its revision: `karga rollback demo` alone goes to the revision before 2.
 
 ### History, diff and rollback
 
 ```console
 $ karga history demo --diff
-REVISION  STATUS      PACKAGE  VERSION  CREATED              DESCRIPTION       CHANGES
-1         superseded  shop     0.1.0    2026-11-17 13:18:00  Install complete  first
-2         deployed    shop     0.1.0    2026-11-17 13:18:06  Upgrade complete  +0 ~1 -0, 1 values
-3         failed      shop     0.1.0    2026-11-17 13:18:21  Upgrade failed: ...
+REVISION  STATUS      PACKAGE  VERSION  CREATED                     DESCRIPTION       CHANGES
+1         superseded  shop     0.1.0    2026-11-17 13:18:00 +03:00  Install complete  first
+2         deployed    shop     0.1.0    2026-11-17 13:18:06 +03:00  Upgrade complete  +0 ~1 -0, 1 values
+3         failed      shop     0.1.0    2026-11-17 13:18:21 +03:00  Upgrade failed: ...
 
 $ karga diff demo 1
 Release demo: revision 1 -> 2
@@ -370,6 +394,7 @@ Revision: 2 -> 4
   ~ WORKLOAD web (replace)
 ```
 
+A description longer than 60 characters is cut in the table (`...`); `-o json` has it whole.
 `deployed` is the revision that runs (the newest one that deployed: a failed upgrade after it
 leaves it running), `superseded` an earlier one a later deployment replaced, `failed` one that did
 not deploy. Rollback goes back to superseded revisions, never to failed ones.
@@ -483,10 +508,10 @@ $ karga gateway apply -f gateway.yaml
 gateway settings applied (revision 4)
 
 $ karga gateway history
-REVISION        TIME                 ACTOR  SOURCE
-2               2026-11-19 10:02:11  alice  listener add pg
-3               2026-11-19 10:14:40  alice  apply
-4 (in force)    2026-11-19 10:31:05  alice  apply
+REVISION        TIME                        ACTOR  SOURCE
+2               2026-11-19 10:02:11 +03:00  alice  listener add pg
+3               2026-11-19 10:14:40 +03:00  alice  apply
+4 (in force)    2026-11-19 10:31:05 +03:00  alice  apply
 
 $ karga gateway rollback          # the revision before; or: karga gateway rollback 2
 
@@ -632,7 +657,8 @@ $ karga logs --gateway -f
 [2026-11-17T04:58:08.117Z] "GET /logged HTTP/1.1" 404 - 0 124 2 1 "192.0.2.57" "Go-http-client/1.1" ...
 ```
 
-It is off by default to keep the log small; turning it on or off does not interrupt traffic.
+It is off by default to keep the log small; turning it on or off does not interrupt traffic. A
+request shows up within about a second. Times are UTC (the `Z`).
 
 ## 7. Upgrades without downtime
 
@@ -674,7 +700,9 @@ Rules to know:
 
 - **Health checks.** `exec` runs a command inside the container, so the image needs the tool (curl,
   wget, pg_isready...). `tcp` and `http` are run by karga from the host and need nothing in the
-  image.
+  image. The workload's check is the only one: the release proxy and the gateway check nothing
+  themselves. A `tcp` check opens a connection and closes it without a word; services that punish
+  those (sshd since OpenSSH 9.8, anything behind fail2ban) need an `http` or `exec` check.
 - **Volumes.** A workload that mounts a volume read-write, or keeps an image VOLUME in an anonymous
   volume (see [section 8](#what-happens-to-data-on-an-upgrade)), is always recreated: two
   containers writing the same data are unsafe.
@@ -902,6 +930,8 @@ the client says the user agreed, so no client skips the question.
 | `is a tcp listener and takes no host` / `needs a host` / `needs tls.secret` | The exposure does not fit the listener's protocol. |
 | `image ... was not found in its registry` | Wrong repository or tag; nothing running changed. |
 | `workload X is unhealthy: http check on ... failed` | The application did not answer its health check; `karga logs` the stopped container. |
+| `workload X keeps restarting (N restarts, last exit code C)` | The container crashes as it starts; `karga logs` it. |
+| `... and workload W is down: its revision N container was replaced` | A recreate failed after the old container went: run the `karga rollback <release> N` it names. |
 | `another operation is running on this release` | Another karga command works on the release; wait for it. |
 | `a previous operation on this release was interrupted` | An operation was left by a process that is gone (karga-server finishes its own when it starts); check `karga status`, then rerun with `--force`. |
 | `gateway: proxy does not route to ... : <reason>` | The gateway did not accept or reach the new backend; the reason (and Envoy's own message, if it refused the configuration) follows. |
@@ -930,13 +960,13 @@ $ docker ps --filter name=demo-web --format "{{.Names}} {{.Status}}"
 demo-web Up 1 second
 
 $ karga events demo
-TIME                 RELEASE  OPERATION  REVISION  USER          STATUS     WHAT
-2026-11-17 19:01:09  demo     install    1         alice         succeeded  create network net, create workload web, create service web, create proxy proxy
-2026-11-17 19:01:17  demo     reconcile  1         karga-server  succeeded  create workload web
+TIME                        RELEASE  OPERATION  REVISION  USER          STATUS     WHAT
+2026-11-17 19:01:09 +03:00  demo     install    1         alice         succeeded  create network net, create workload web, create service web, create proxy proxy
+2026-11-17 19:01:17 +03:00  demo     reconcile  1         karga-server  succeeded  create workload web
 
 $ karga status demo
 ...
-Repaired: 2026-11-17 19:01:17, succeeded
+Repaired: 2026-11-17 19:01:17 +03:00, succeeded
 ```
 
 What it never does:
@@ -1016,6 +1046,9 @@ shop/
   NOTES.txt             shown after install and upgrade
   files/                read with .Files.Get "name"
 ```
+
+In `templates/`, files whose name starts with `_` only hold named templates, and files whose name
+starts with `.` are ignored (macOS `._*` and `.DS_Store`, editor files).
 
 Templates use Go templates with Sprig. The context is `.Values`, `.Release.Name`,
 `.Release.Revision`, `.Package.Name`, `.Package.Version` and `.Files`; `include`, `tpl`,
@@ -1343,9 +1376,9 @@ Release "notes" upgraded (revision 2).
   update workload api (replace)
 
 $ karga history notes
-REVISION  STATUS      PACKAGE  VERSION  CREATED              DESCRIPTION
-1         superseded  notes    1.0.0    2026-11-18 12:00:42  Install complete
-2         deployed    notes    1.0.0    2026-11-18 12:02:36  Upgrade complete
+REVISION  STATUS      PACKAGE  VERSION  CREATED                     DESCRIPTION
+1         superseded  notes    1.0.0    2026-11-18 12:00:42 +03:00  Install complete
+2         deployed    notes    1.0.0    2026-11-18 12:02:36 +03:00  Upgrade complete
 $ karga rollback notes 1
 Release "notes" rolled back (revision 3).
   update workload api (replace)
