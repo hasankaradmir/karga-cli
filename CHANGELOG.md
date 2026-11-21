@@ -64,6 +64,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- A user outside the `karga` group got `karga-server is not running` (exit 3) though it ran; it is
+  `permission denied on /run/karga/karga.sock` (exit 1) now (karga-sdk).
 - USAGE §13 and README: files in `templates/` whose name starts with `.` are ignored (karga-sdk);
   a macOS `._*` file failed `lint` with `yaml: control characters are not allowed`.
 - Times in `list`, `history`, `status`, `events` and `gateway history` had no zone, while the
