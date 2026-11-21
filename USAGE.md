@@ -1047,6 +1047,9 @@ shop/
   files/                read with .Files.Get "name"
 ```
 
+In `templates/`, files whose name starts with `_` only hold named templates, and files whose name
+starts with `.` are ignored (macOS `._*` and `.DS_Store`, editor files).
+
 Templates use Go templates with Sprig. The context is `.Values`, `.Release.Name`,
 `.Release.Revision`, `.Package.Name`, `.Package.Version` and `.Files`; `include`, `tpl`,
 `required`, `toYaml` and `fromYaml` are there. Functions that read the host or are not

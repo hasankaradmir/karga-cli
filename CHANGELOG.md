@@ -64,6 +64,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- USAGE §13 and README: files in `templates/` whose name starts with `.` are ignored (karga-sdk);
+  a macOS `._*` file failed `lint` with `yaml: control characters are not allowed`.
 - Times in `list`, `history`, `status`, `events` and `gateway history` had no zone, while the
   gateway's access log is UTC; they show their offset now (`2026-11-17 19:01:09 +03:00`).
 - `history` put a failed revision's whole error in DESCRIPTION (one row ~300 columns wide); the

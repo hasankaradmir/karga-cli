@@ -140,7 +140,7 @@ redis/
 ├── values.yaml           # defaults
 ├── values.schema.json    # optional JSON Schema, checked before rendering
 ├── README.md
-├── templates/            # *.yaml render to resources; _*.tpl only hold named templates
+├── templates/            # *.yaml render to resources; _*.tpl only hold named templates; .* are ignored
 ├── files/                # read from templates with .Files.Get / .Files.Glob
 └── .kargaignore          # optional: paths left out of the package (one pattern per line)
 ```
