@@ -111,8 +111,8 @@ The example packages used below (`examples/redis`, `examples/postgres`) are in
 ```console
 $ systemctl status karga-server
 $ karga version
-karga v0.1.1 (commit 55fb34d8c63c, go1.27.4, API 3.0)
-karga-server v0.1.0 (API 3.0)
+karga v0.1.1 (commit 55fb34d8c63c, go1.27.4, API 4.0)
+karga-server v0.1.0 (API 4.0)
 $ journalctl -u karga-server -f          # the server's log
 ```
 
@@ -143,7 +143,7 @@ the server stops (`systemctl stop`, a reboot) it waits up to 5 minutes for runni
 it is killed in the middle of one, it finishes the operation when it starts again, with the
 options it was given (`--delete-volumes`, `--strategy`, `--timeout`, `--keep-history`): an install,
 upgrade or rollback deploys its revision again (steps already done are skipped, no new revision),
-an uninstall runs again, and other operations (volume backup or restore, a repair) are aborted. `karga events` shows the interrupted operation as `aborted` and
+an uninstall or a volume restore runs again, and other operations (a volume backup, a repair) are aborted. `karga events` shows the interrupted operation as `aborted` and
 the one that finished it as `resume`.
 
 ### Development server
@@ -766,7 +766,7 @@ Release "s" rolled back (revision 3).
 - The old container is stopped before the new one starts: it gets SIGTERM (or the image's stop
   signal) and `stopTimeout` (default 10s) to shut down before it is killed. Databases that write a
   checkpoint on shutdown need more; `examples/postgres` sets `stopTimeout: 60s`. The same time
-  applies to `uninstall`, `volume backup --stop` and `docker stop`.
+  applies to `uninstall`, `volume backup`, `volume restore` and `docker stop`.
 - Data written anywhere else in the container is lost when it is recreated, unless the image
   declares that path as a `VOLUME`. Docker then keeps it in an anonymous volume, which karga moves
   to the new container on every upgrade. It is not a karga Volume: `uninstall` deletes it and
@@ -783,25 +783,62 @@ Release "s" rolled back (revision 3).
 
 ### Back up and restore a volume
 
+A consistent copy of an application that writes (a database) needs it stopped: the backup stops
+the workloads writing to the volume, and those that depend on them, for the time of the copy.
+
 ```console
-$ karga volume backup db postgres-data db.tar.gz --stop
-volume postgres-data of db written to db.tar.gz
+$ karga volume backup db postgres-data db.tar.gz
+volume postgres-data of db written to db.tar.gz (postgres was down for 10.6s)
 
 $ karga volume restore db postgres-data db.tar.gz
-This stops the workloads mounting volume postgres-data of db and overwrites its files with db.tar.gz. Continue? [y/N] y
-volume postgres-data of db restored from db.tar.gz
+This stops the workloads using the volume and those that depend on them, replaces the files of volume postgres-data of db with db.tar.gz; its current files are kept as a restore point (karga volume undo-restore). Continue? [y/N] y
+[  0s] workload postgres: stopping db-postgres-f83189ca
+[  0s] volume postgres-data: keeping its files as a restore point
+[  0s] workload postgres: removing db-postgres-f83189ca
+[  0s] volume postgres-data: creating db-postgres-data again, empty
+[  0s] workload postgres: creating db-postgres-f83189ca
+[  1s] volume postgres-data: writing db.tar.gz
+[  1s] workload postgres: starting db-postgres-f83189ca
+[  3s] workload db-postgres-f83189ca: waiting for db-postgres-f83189ca to be ready (health starting, 2s)
+...
+[ 11s] workload postgres: start done
+volume postgres-data of db restored from db.tar.gz (postgres was down for 10.9s)
+Its previous files are kept: 'karga volume undo-restore db postgres-data' puts them back.
+
+$ karga volume undo-restore db postgres-data
+volume postgres-data of db is back as it was before its last restore (postgres was down for 10.7s)
 ```
 
-- `--stop` stops the workloads that mount the volume during the copy, so the files are consistent;
-  the server copies to a temporary file under its `KARGA_HOME` (as large as the backup), starts the
-  workloads again and then sends it, so a slow download does not lengthen the downtime. Without
-  `--stop` the copy is taken live. For databases prefer `--stop`, or the database's own dump:
-  `karga exec db postgres -- pg_dump -U app app > app.sql`.
-- Restore asks first (`--yes` in scripts), receives the whole backup, then stops those workloads,
-  writes the files and starts them again, to the end even if the CLI goes away. Files in the
-  backup overwrite files with the same name; other files in the volume stay.
-- The backup file is mode 0600 and names its release and volume; restoring it into another one needs
-  `--from-other-volume`.
+- **What stops.** A backup stops the workloads that write to the volume; a restore every workload
+  mounting it, read-only ones too. Both stop what depends on those through `dependsOn`, at any
+  depth (an application whose database is backed up), dependents first. They start again in
+  dependency order, each once those before it are ready (their health checks, as in a deployment),
+  and the command returns when all are: the downtime it reports is from the first stop to the last
+  ready, and `karga events` shows it (`down 10.6s`). A workload without a health check counts as
+  ready once it runs.
+- **Backups.** The copy goes to a temporary file under the server's `KARGA_HOME` (as large as the
+  backup); the workloads start again, then the file is sent, so a slow download does not lengthen
+  the downtime. `--live` copies while the workloads run, with no downtime, but an application that
+  writes may leave the copy inconsistent: for a database use the default, or its own dump
+  (`karga exec db postgres -- pg_dump -U app app > app.sql`). The file is mode 0600, must not exist
+  yet, and names its release and volume. If a workload does not get ready again, the backup is
+  complete and kept, and the command fails (exit 1) saying so.
+- **Restores replace.** The volume ends up with exactly the backup's files: the containers mounting
+  it are removed, the volume is created again, the backup written, and the same containers created
+  again (their anonymous volumes kept). `--merge` writes the backup over the files instead, keeping
+  those it does not have: in a database's volume that can mix newer files with an older backup.
+  Restoring a backup of another volume or release needs `--from-other-volume`.
+- **Restore points.** Before it changes anything, a restore keeps the volume's files as its restore
+  point in `KARGA_HOME/restore-points/<release>/<volume>.tar.gz` (one per volume, each restore
+  replaces it); `karga volume undo-restore` puts them back the same way. Without room for it under
+  `KARGA_HOME` the restore changes nothing and says so; `--no-restore-point` restores without one
+  (the current files are then lost). `uninstall --delete-volumes` removes restore points with the
+  volumes.
+- **Interruptions.** A restore asks first (`--yes` in scripts), receives the whole backup and keeps it
+  under `KARGA_HOME` until it is done: it goes to the end if the CLI goes away, and if karga-server
+  stops in the middle it finishes the restore when it starts again (without taking the restore point
+  again). If the kept backup is gone, the release is paused so that its workloads are not started on
+  a half-written volume: restore again or `karga volume undo-restore`, then `karga resume`.
 
 ## 9. Secrets
 
@@ -902,7 +939,7 @@ Commands that only ask karga-server something give up after `--request-timeout` 
 `--watch`/`-f` are not bounded.
 
 Commands that delete data or expose services ask first on a terminal: `uninstall`, `volume
-restore`, `gateway set listen` with an address other than loopback, `gateway listener remove`, and
+restore`, `volume undo-restore`, `gateway set listen` with an address other than loopback, `gateway listener remove`, and
 `upgrade`/`rollback` with `--delete-volumes`. In a script (stdin is not a terminal) they need
 `--yes` (`-y`); `--dry-run` shows what they would do. karga-server refuses these requests unless
 the client says the user agreed, so no client skips the question.
@@ -931,6 +968,9 @@ the client says the user agreed, so no client skips the question.
 | `image ... was not found in its registry` | Wrong repository or tag; nothing running changed. |
 | `workload X is unhealthy: http check on ... failed` | The application did not answer its health check; `karga logs` the stopped container. |
 | `workload X keeps restarting (N restarts, last exit code C)` | The container crashes as it starts; `karga logs` it. |
+| `... copied, but workload W did not get ready` / `... restored, but ...` | The volume operation did its work (the backup file is complete and kept, the files are in place); W failed its health check after starting again: `karga logs` it. |
+| `not enough space under ... for a restore point` | Free space under `KARGA_HOME`, or restore with `--no-restore-point`; nothing was changed. |
+| `volume V of R has no restore point` | `undo-restore` needs a restore earlier: a restore keeps one. |
 | `... and workload W is down: its revision N container was replaced` | A recreate failed after the old container went: run the `karga rollback <release> N` it names. |
 | `another operation is running on this release` | Another karga command works on the release; wait for it. |
 | `a previous operation on this release was interrupted` | An operation was left by a process that is gone (karga-server finishes its own when it starts); check `karga status`, then rerun with `--force`. |
@@ -1009,7 +1049,7 @@ Config and Secret files) and the volumes:
 $ sudo systemctl stop karga-server
 $ sudo tar -C /var/lib -czf ~/backup/karga-home.tar.gz karga
 $ sudo systemctl start karga-server
-$ karga volume backup db postgres-data ~/backup/db-postgres-data.tar.gz --stop
+$ karga volume backup db postgres-data ~/backup/db-postgres-data.tar.gz
 ```
 
 Restore on a new host, in this order:
@@ -1406,6 +1446,9 @@ A new package version (a new `version` in `Package.yaml`) is upgraded the same w
 - Images are pulled anonymously; private registries are not supported yet.
 - Packages come from local directories or archives; there is no repository or dependency support.
 - There are no lifecycle tasks (e.g. running migrations before an upgrade) yet.
+- Volume backups are files you keep: karga takes none on a schedule and keeps no history of them
+  (one restore point per volume). A consistent backup stops the volume's workloads: there are no
+  backup hooks (a database's own dump without stopping it) or filesystem snapshots yet.
 - A workload is one container; there are no replicas.
 - An upgrade that recreates a workload stops the old container before the new one starts: if the
   new one does not get ready, the workload is down (stopped, so its logs can be read) until you upgrade again or

@@ -23,6 +23,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   `listener list` shows them in OPTIONS.
 
 ### Changed
+- USAGE §8 rewritten for the new volume backup and restore (what stops, `--live`, replace and `--merge`,
+  restore points, interruptions); §2 shows API 4.0, §11 and §16 the new errors and limits.
 - API 4.0 (karga-sdk): `volume backup` stops the workloads writing to the volume by default; `--live`
   copies while they run (`--stop` is gone). `volume restore` replaces the volume's files and keeps
   the old ones as a restore point. A backup whose workloads did not get ready again is kept, and the
