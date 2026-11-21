@@ -334,7 +334,21 @@ Release "demo" upgraded (revision 2).
   update workload web (replace)
 ```
 
-Images are pulled before anything running is touched. A tag that does not exist changes nothing:
+Images are pulled before anything running is touched. While Docker pulls one, every two seconds a
+line says how far it got (the total grows as Docker learns the image's layers):
+
+```console
+$ karga install db examples/postgres --set database.password=s3cret-pw
+[  0s] workload postgres: image postgres:17 (if-not-present)
+[  2s] workload postgres: pulling postgres:17 (2s)
+[  4s] workload postgres: pulling postgres:17: 57MB/165MB (4s)
+[  6s] workload postgres: pulling postgres:17: 142MB/171MB (6s)
+[  8s] workload postgres: pulling postgres:17: 171MB/171MB (8s)
+[  9s] network postgres-network: create done
+...
+```
+
+A tag that does not exist changes nothing:
 
 ```console
 $ karga upgrade demo shop --reuse-values --set image.tag=does-not-exist
