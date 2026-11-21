@@ -64,6 +64,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `--verbose` plans and `karga diff` showed an added field as `path: value`, like nothing changed;
+  it is `path: (added) -> value` now.
 - USAGE §6: a request shows up in the gateway access log within about a second (karga-server), and
   its times are UTC.
 - README and USAGE said a failed recreate left the previous revision serving; its container was

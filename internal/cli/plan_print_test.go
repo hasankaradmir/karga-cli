@@ -13,7 +13,7 @@ func samplePlan() api.Plan {
 		{Kind: "Volume", Name: "cache", Action: api.ActionDelete, Notice: "its data is deleted"},
 		{Kind: "Workload", Name: "redis", Action: api.ActionUpdate, Strategy: "recreate",
 			Fields: []api.FieldChange{{Path: "spec.image", Old: `"redis:7.4"`, New: `"redis:7.2"`}, {Path: "spec.values.password", New: "(changed)"},
-				{Path: "spec.env.OLD", Old: `"x"`}}},
+				{Path: "spec.env.OLD", Old: `"x"`}, {Path: "spec.env.NEW", New: `"2222"`}}},
 	}}
 }
 
@@ -39,6 +39,7 @@ Changes:
     spec.image: "redis:7.4" -> "redis:7.2"
     spec.values.password: (changed)
     spec.env.OLD: "x" -> (removed)
+    spec.env.NEW: (added) -> "2222"
 `
 	if b.String() != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", b.String(), want)

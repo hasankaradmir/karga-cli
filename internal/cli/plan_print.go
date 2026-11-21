@@ -101,13 +101,16 @@ func printPlan(w io.Writer, p api.Plan, releaseName string, from, to int) error 
 	return err
 }
 
-// writeField writes one changed field: "path: new", "path: old -> new" or "path: old -> (removed)".
+// writeField writes one changed field: "path: (added) -> new", "path: old -> new",
+// "path: old -> (removed)", or "path: (changed)" for a Secret value, which is never shown.
 func writeField(b *strings.Builder, indent string, f api.FieldChange) {
 	switch {
 	case f.Old == "" && f.New == "":
 		fmt.Fprintf(b, "%s%s\n", indent, f.Path)
+	case f.Old == "" && f.New == "(changed)":
+		fmt.Fprintf(b, "%s%s: (changed)\n", indent, f.Path)
 	case f.Old == "":
-		fmt.Fprintf(b, "%s%s: %s\n", indent, f.Path, f.New)
+		fmt.Fprintf(b, "%s%s: (added) -> %s\n", indent, f.Path, f.New)
 	case f.New == "":
 		fmt.Fprintf(b, "%s%s: %s -> (removed)\n", indent, f.Path, f.Old)
 	default:

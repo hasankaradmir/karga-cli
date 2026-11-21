@@ -305,7 +305,8 @@ Revision: 1 -> 2
 0 to create, 1 to update, 0 to delete, 3 unchanged. --verbose shows the changed fields.
 ```
 
-`--verbose` lists every changed field. The text in parentheses is the update strategy and, when a
+`--verbose` lists every changed field (`old -> new`, `(added) -> new`, `old -> (removed)`; a Secret
+value only as `(changed)`). The text in parentheses is the update strategy and, when a
 workload asked for `replace` but cannot have it, why:
 
 - **recreate**: the new container is created next to the old one, then the old one stops and the
