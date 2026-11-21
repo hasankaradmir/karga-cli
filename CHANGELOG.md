@@ -6,6 +6,11 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- `karga volume undo-restore <release> <volume>`: put back the files a volume had before its last
+  restore (its restore point).
+- `volume restore --merge` (write over the files, as before) and `--no-restore-point`. Restore and
+  undo-restore show their progress, and volume commands say which workloads were down and for how
+  long; `events` shows it too (`down 4.2s`).
 - USAGE §5: image pulls show their progress (karga-server).
 - USAGE: exposure `pathType` (prefix, by segment, or exact) and `to` (karga-server D43).
 - `karga gateway edit`: the settings in force in `$KARGA_EDITOR`/`$EDITOR`; a document with
@@ -18,6 +23,10 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   `listener list` shows them in OPTIONS.
 
 ### Changed
+- API 4.0 (karga-sdk): `volume backup` stops the workloads writing to the volume by default; `--live`
+  copies while they run (`--stop` is gone). `volume restore` replaces the volume's files and keeps
+  the old ones as a restore point. A backup whose workloads did not get ready again is kept, and the
+  error says so.
 - USAGE: the workload's health check is the only one; a `tcp` check's empty connection is punished
   by sshd and fail2ban, so those need `http` or `exec` (karga-server D44).
 - USAGE: the gateway reaches release proxies on the `karga-edge` network; proxies publish no port

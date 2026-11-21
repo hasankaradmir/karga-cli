@@ -119,4 +119,5 @@ func addCompletion(a *app, root *cobra.Command) {
 	set("exec", false, completeRelease, workload)
 	set("volume backup", false, completeRelease, volume, completeFile)
 	set("volume restore", false, completeRelease, volume, completeFile)
+	set("volume undo-restore", false, completeRelease, volume)
 }

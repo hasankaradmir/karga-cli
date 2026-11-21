@@ -1,3 +1,4 @@
-TIME                        RELEASE  OPERATION  REVISION  USER   STATUS     WHAT
-2026-11-18 10:30:00 +00:00  r        upgrade    2         alice  failed     workload web did not become ready
-2026-11-18 09:30:00 +00:00  r        install    1         alice  succeeded  
+TIME                        RELEASE  OPERATION      REVISION  USER   STATUS     WHAT
+2026-11-18 11:30:00 +00:00  r        volume-backup  2         alice  succeeded  down 4.2s
+2026-11-18 10:30:00 +00:00  r        upgrade        2         alice  failed     workload web did not become ready
+2026-11-18 09:30:00 +00:00  r        install        1         alice  succeeded  

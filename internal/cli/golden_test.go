@@ -48,6 +48,7 @@ func TestGoldenOutput(t *testing.T) {
 	ops := []api.Operation{
 		{ID: 1, Release: "r", Type: "install", Revision: 1, Status: "succeeded", Actor: "alice", StartedAt: at},
 		{ID: 2, Release: "r", Type: "upgrade", Revision: 2, Status: "failed", Actor: "alice", Error: "workload web did not become ready", StartedAt: at.Add(time.Hour)},
+		{ID: 3, Release: "r", Type: "volume-backup", Revision: 2, Status: "succeeded", Actor: "alice", Downtime: api.Duration(4200 * time.Millisecond), StartedAt: at.Add(2 * time.Hour)},
 	}
 
 	cases := []struct {

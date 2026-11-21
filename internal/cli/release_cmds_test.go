@@ -217,8 +217,8 @@ func TestStreams(t *testing.T) {
 	dir := t.TempDir()
 	e.f.backup = "TARBALL"
 	file := filepath.Join(dir, "data.tar.gz")
-	if out := e.mustRun("volume", "backup", "r", "data", file, "--stop"); !strings.Contains(out, "written to "+file) {
-		t.Fatalf("backup: %s", out)
+	if out := e.mustRun("volume", "backup", "r", "data", file); !strings.Contains(out, "written to "+file+" (db, app were down for 1.2s)") || e.f.backupReq.Live {
+		t.Fatalf("backup: %s %+v", out, e.f.backupReq)
 	}
 	if info, err := os.Stat(file); err != nil || info.Mode().Perm() != 0o600 {
 		t.Fatalf("backup file: %v %v", info, err)
@@ -229,8 +229,29 @@ func TestStreams(t *testing.T) {
 	if _, err := e.run("volume", "backup", "r", "data", file); err == nil {
 		t.Fatal("backup over an existing file must fail")
 	}
-	if out := e.mustRun("volume", "restore", "--yes", "r", "data", file); !strings.Contains(out, "restored from") || e.f.restored != "TARBALL" {
+	if out := e.mustRun("volume", "restore", "--yes", "r", "data", file); !strings.Contains(out, "restored from "+file+" (db was down for 3s)") ||
+		!strings.Contains(out, "'karga volume undo-restore r data' puts them back") || e.f.restored != "TARBALL" {
 		t.Fatalf("restore: %s %q", out, e.f.restored)
+	}
+	if out := e.mustRun("volume", "restore", "--yes", "--merge", "--no-restore-point", "r", "data", file); strings.Contains(out, "undo-restore") ||
+		!e.f.restoreReq.Merge || !e.f.restoreReq.NoRestorePoint {
+		t.Fatalf("restore --merge --no-restore-point: %s %+v", out, e.f.restoreReq)
+	}
+	if out := e.mustRun("volume", "undo-restore", "--yes", "r", "data"); !strings.Contains(out, "back as it was before its last restore (db was down for 2s)") {
+		t.Fatalf("undo-restore: %s", out)
+	}
+	live := filepath.Join(dir, "live.tar.gz")
+	if _, err := e.run("volume", "backup", "--live", "r", "data", live); err != nil || !e.f.backupReq.Live {
+		t.Fatalf("backup --live: %v %+v", err, e.f.backupReq)
+	}
+	// Workloads that do not get ready again leave the backup complete: it is kept.
+	e.f.err = fmt.Errorf("volume data of r copied, but workload db did not get ready: %w", api.ErrNotReady)
+	notReady := filepath.Join(dir, "not-ready.tar.gz")
+	if _, err := e.run("volume", "backup", "r", "data", notReady); err == nil || !strings.Contains(err.Error(), notReady+" was written; volume data of r copied, but") {
+		t.Fatalf("not ready: %v", err)
+	}
+	if b, err := os.ReadFile(notReady); err != nil || string(b) != "TARBALL" {
+		t.Fatalf("the complete backup was removed: %q %v", b, err)
 	}
 	e.f.err = errors.New("volume data is not mounted")
 	failed := filepath.Join(dir, "failed.tar.gz")
