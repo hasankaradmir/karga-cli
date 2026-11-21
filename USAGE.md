@@ -394,6 +394,7 @@ Revision: 2 -> 4
   ~ WORKLOAD web (replace)
 ```
 
+A description longer than 60 characters is cut in the table (`...`); `-o json` has it whole.
 `deployed` is the revision that runs (the newest one that deployed: a failed upgrade after it
 leaves it running), `superseded` an earlier one a later deployment replaced, `failed` one that did
 not deploy. Rollback goes back to superseded revisions, never to failed ones.

@@ -64,6 +64,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `history` put a failed revision's whole error in DESCRIPTION (one row ~300 columns wide); the
+  table cuts it at 60 characters, as `events` cuts WHAT at 100. `-o json` and `-o yaml` keep it whole.
 - `--verbose` plans and `karga diff` showed an added field as `path: value`, like nothing changed;
   it is `path: (added) -> value` now.
 - USAGE §6: a request shows up in the gateway access log within about a second (karga-server), and

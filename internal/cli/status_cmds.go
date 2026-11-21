@@ -267,9 +267,7 @@ func eventRows(ops []api.Operation) [][]string {
 			}
 			what = strings.Join(parts, ", ")
 		}
-		if r := []rune(what); len(r) > 100 {
-			what = string(r[:97]) + "..."
-		}
+		what = truncate(what, 100)
 		user := op.Actor
 		if user == "" {
 			user = "-" // recorded before karga-server knew its clients
@@ -277,4 +275,13 @@ func eventRows(ops []api.Operation) [][]string {
 		rows = append(rows, []string{op.StartedAt.Local().Format("2006-01-02 15:04:05"), op.Release, op.Type, strconv.Itoa(op.Revision), user, string(op.Status), what})
 	}
 	return rows
+}
+
+// truncate cuts s to n characters (runes), ending it with "..." when it was longer: a table cell
+// stays readable; -o json and -o yaml keep the whole text.
+func truncate(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n-3]) + "..."
+	}
+	return s
 }

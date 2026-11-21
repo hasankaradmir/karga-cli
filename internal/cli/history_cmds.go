@@ -36,7 +36,7 @@ func newHistoryCmd(a *app) *cobra.Command {
 			}
 			var rows [][]string
 			for i, r := range revs {
-				row := []string{strconv.Itoa(r.Number), string(r.Status), r.PackageName, r.PackageVersion, ago(r.CreatedAt), r.Description}
+				row := []string{strconv.Itoa(r.Number), string(r.Status), r.PackageName, r.PackageVersion, ago(r.CreatedAt), truncate(r.Description, 60)}
 				if withDiff {
 					row = append(row, changeSummary(cmd.Context(), s, revs, i))
 				}

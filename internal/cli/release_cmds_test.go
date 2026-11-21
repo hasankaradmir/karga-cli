@@ -161,6 +161,15 @@ func TestHistoryAndDiff(t *testing.T) {
 	if out := e.mustRun("history", "r", "--diff"); !strings.Contains(out, "first") || !strings.Contains(out, "+0 ~1 -0, 1 values") {
 		t.Fatalf("history --diff:\n%s", out)
 	}
+	// A failure's description is cut in the table, whole in -o json.
+	long := `Upgrade failed: Workload "gitea": image gitea/gitea:does-not-exist was not found in its registry`
+	e.f.history = append(e.f.history, api.Revision{Release: "r", Number: 3, Status: api.RevisionFailed, Description: long})
+	if out := e.mustRun("history", "r"); !strings.Contains(out, `Upgrade failed: Workload "gitea": image gitea/gitea:does-...`) || strings.Contains(out, "registry") {
+		t.Fatalf("history table:\n%s", out)
+	}
+	if out := e.mustRun("history", "r", "-o", "json"); !strings.Contains(out, "in its registry") {
+		t.Fatalf("history json:\n%s", out)
+	}
 	out := e.mustRun("diff", "r", "1")
 	for _, want := range []string{"revision 1 -> 2", `tag: "a" -> "b"`, "~ WORKLOAD web", `spec.image: "a" -> "b"`} {
 		if !strings.Contains(out, want) {
