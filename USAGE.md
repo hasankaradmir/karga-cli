@@ -829,7 +829,11 @@ volume postgres-data of db is back as it was before its last restore (postgres w
   it are removed, the volume is created again, the backup written, and the same containers created
   again (their anonymous volumes kept). `--merge` writes the backup over the files instead, keeping
   those it does not have: in a database's volume that can mix newer files with an older backup.
-  Restoring a backup of another volume or release needs `--from-other-volume`.
+  Restoring a backup of another volume or release needs `--from-other-volume`. The backup is read
+  to its end before anything changes: a file cut short or damaged is refused, and the volume is
+  untouched. If writing it fails anyway (Docker, a full disk), the volume may be empty or half
+  written: its workloads stay stopped and the release is paused. Restore again or `karga volume
+  undo-restore`, then `karga resume`.
 - **Restore points.** Before it changes anything, a restore keeps the volume's files as its restore
   point in `KARGA_HOME/restore-points/<release>/<volume>.tar.gz` (one per volume, each restore
   replaces it); `karga volume undo-restore` puts them back the same way. Without room for it under
@@ -971,6 +975,8 @@ the client says the user agreed, so no client skips the question.
 | `workload X is unhealthy: http check on ... failed` | The application did not answer its health check; `karga logs` the stopped container. |
 | `workload X keeps restarting (N restarts, last exit code C)` | The container crashes as it starts; `karga logs` it. |
 | `... copied, but workload W did not get ready` / `... restored, but ...` | The volume operation did its work (the backup file is complete and kept, the files are in place); W failed its health check after starting again: `karga logs` it. |
+| `... is cut short or damaged` | The backup file is incomplete (a copy that stopped early) or corrupt; nothing was changed. |
+| `... may be empty or half written, so ... stay stopped and R is paused` | The restore failed writing the volume; restore again or `karga volume undo-restore`, then `karga resume R`. |
 | `not enough space under ... for a restore point` | Free space under `KARGA_HOME`, or restore with `--no-restore-point`; nothing was changed. |
 | `volume V of R has no restore point` | `undo-restore` needs a restore earlier: a restore keeps one. |
 | `... and workload W is down: its revision N container was replaced` | A recreate failed after the old container went: run the `karga rollback <release> N` it names. |

@@ -75,6 +75,10 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `volume restore` of a backup cut short emptied the volume and started the workloads on what it
+  had written; a restore that failed writing (Docker, a full disk) started them on an empty or half
+  written volume. The backup is read to its end before anything changes, and a failed write leaves
+  the workloads stopped and the release paused (karga-server); USAGE §8.
 - `volume backup` stopped mid-download (Ctrl-C, a timeout) kept the part it had and said `written`
   with exit 0; it removes the file and exits 7 now (karga-sdk). Stopped mid-copy, the workloads it
   stopped start again (karga-server); USAGE §2.
