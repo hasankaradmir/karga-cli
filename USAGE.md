@@ -138,7 +138,9 @@ own repairs and resumes).
 `KARGA_SOCKET` point the CLI at another socket.
 
 Operations run in the server, not in the CLI. Ctrl-C (or a lost connection) stops only the
-progress output: the operation goes on to its end, and `karga events -f <release>` follows it. When
+progress output: the operation goes on to its end, and `karga events -f <release>` follows it. A
+volume backup is the exception, as its file is the output: Ctrl-C stops the copy, removes the file
+and exits 7, and the workloads the backup stopped start again. When
 the server stops (`systemctl stop`, a reboot) it waits up to 5 minutes for running operations. If
 it is killed in the middle of one, it finishes the operation when it starts again, with the
 options it was given (`--delete-volumes`, `--strategy`, `--timeout`, `--keep-history`): an install,

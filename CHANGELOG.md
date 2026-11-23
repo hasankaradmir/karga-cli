@@ -75,6 +75,9 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `volume backup` stopped mid-download (Ctrl-C, a timeout) kept the part it had and said `written`
+  with exit 0; it removes the file and exits 7 now (karga-sdk). Stopped mid-copy, the workloads it
+  stopped start again (karga-server); USAGE §2.
 - A user outside the `karga` group got `karga-server is not running` (exit 3) though it ran; it is
   `permission denied on /run/karga/karga.sock` (exit 1) now (karga-sdk).
 - USAGE §13 and README: files in `templates/` whose name starts with `.` are ignored (karga-sdk);
