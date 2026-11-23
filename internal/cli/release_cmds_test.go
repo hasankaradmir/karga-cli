@@ -307,8 +307,11 @@ func TestGatewayCommands(t *testing.T) {
 func TestReconcileCommands(t *testing.T) {
 	e := newCLIEnv(t)
 	e.f.recon = &api.ReconcileResult{Release: "r", Actions: []api.Step{{Kind: "Workload", Name: "web", Action: "start", Status: "done"}}}
-	if out := e.mustRun("reconcile", "r"); !strings.Contains(out, "start workload web: done") {
-		t.Fatalf("reconcile:\n%s", out)
+	if out := e.mustRun("reconcile", "r"); !strings.Contains(out, "start workload web: done") || !e.f.reconReq.Force || e.f.reconReq.EmptyVolumes {
+		t.Fatalf("reconcile:\n%s %+v", out, e.f.reconReq)
+	}
+	if e.mustRun("reconcile", "--empty-volumes", "r"); !e.f.reconReq.EmptyVolumes {
+		t.Fatalf("--empty-volumes: %+v", e.f.reconReq)
 	}
 	e.f.recon = &api.ReconcileResult{Release: "r", Skipped: "paused"}
 	if out := e.mustRun("reconcile", "r"); !strings.Contains(out, "not reconciled: paused") {

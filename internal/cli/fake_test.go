@@ -56,6 +56,7 @@ type fake struct {
 	// backupReq and restoreReq are the last volume requests.
 	backupReq  api.VolumeBackupRequest
 	restoreReq api.VolumeRestoreRequest
+	reconReq   api.ReconcileRequest
 	execCmd    []string
 	stdin      string
 	calls      []string
@@ -187,8 +188,9 @@ func (f *fake) UndoRestoreVolume(_ context.Context, req api.VolumeUndoRestoreReq
 	return &api.VolumeResult{Release: req.Release, Volume: req.Volume, Stopped: []string{"db"}, Downtime: api.Duration(2 * time.Second)}, f.err
 }
 
-func (f *fake) Reconcile(context.Context, api.ReconcileRequest) (*api.ReconcileResult, error) {
+func (f *fake) Reconcile(_ context.Context, req api.ReconcileRequest) (*api.ReconcileResult, error) {
 	f.call("reconcile")
+	f.reconReq = req
 	return f.recon, f.err
 }
 

@@ -111,8 +111,8 @@ The example packages used below (`examples/redis`, `examples/postgres`) are in
 ```console
 $ systemctl status karga-server
 $ karga version
-karga v0.1.1 (commit 55fb34d8c63c, go1.27.4, API 4.0)
-karga-server v0.1.0 (API 4.0)
+karga v0.1.1 (commit 55fb34d8c63c, go1.27.4, API 4.1)
+karga-server v0.1.0 (API 4.1)
 $ journalctl -u karga-server -f          # the server's log
 ```
 
@@ -977,6 +977,7 @@ the client says the user agreed, so no client skips the question.
 | `... copied, but workload W did not get ready` / `... restored, but ...` | The volume operation did its work (the backup file is complete and kept, the files are in place); W failed its health check after starting again: `karga logs` it. |
 | `... is cut short or damaged` | The backup file is incomplete (a copy that stopped early) or corrupt; nothing was changed. |
 | `... may be empty or half written, so ... stay stopped and R is paused` | The restore failed writing the volume; restore again or `karga volume undo-restore`, then `karga resume R`. |
+| `volume V is missing in Docker, so its files are gone` | The volume was removed outside karga or its data lost: `karga reconcile R --empty-volumes`, then `karga volume restore R V <backup>`. |
 | `not enough space under ... for a restore point` | Free space under `KARGA_HOME`, or restore with `--no-restore-point`; nothing was changed. |
 | `volume V of R has no restore point` | `undo-restore` needs a restore earlier: a restore keeps one. |
 | `... and workload W is down: its revision N container was replaced` | A recreate failed after the old container went: run the `karga rollback <release> N` it names. |
@@ -996,7 +997,8 @@ reports a container died, was stopped, removed or became unhealthy, and every 30
 
 | It sees | It does |
 |---------|---------|
-| A container, network, volume or release proxy is gone | Creates it again from the current revision (a volume comes back empty) |
+| A container, network or release proxy is gone | Creates it again from the current revision |
+| A volume is gone | Nothing: its files are gone, and its workloads would start empty. The repair fails and says so (below) |
 | A container was recreated by hand from other settings | Recreates it from the current revision |
 | A container is stopped | Starts it |
 | A container is unhealthy (Docker's check, or karga's tcp/http check failing `retries` times) | Restarts it |
@@ -1024,6 +1026,24 @@ What it never does:
   rollback or upgrade, D2), and a release an operation is working on.
 - It does not delete containers it does not know (`karga status` lists them under "Not tracked by
   karga").
+- It does not create a volume that is gone (removed by hand, Docker's data lost, `$KARGA_HOME` moved
+  to another host). What mounts it waits too, and `karga status` says why:
+
+  ```console
+  $ karga status cache
+  ...
+  Repaired: 2026-11-24 00:14:48 +03:00, failed: Volume redis-data: create: volume redis-data is missing in Docker, so its files are gone; karga does not create it empty on its own. 'karga reconcile cache --empty-volumes' creates it, then 'karga volume restore cache redis-data <backup>' puts a backup back
+  ```
+
+  `karga reconcile <release> --empty-volumes` creates it, empty, with what mounts it; `karga volume
+  restore` then puts a backup back:
+
+  ```console
+  $ karga reconcile cache --empty-volumes
+  Release "cache" repaired:
+    create volume redis-data: done
+    create workload redis: done
+  ```
 
 A repair that fails is retried with growing pauses (10 seconds doubling to 5 minutes). After 5
 failures in 10 minutes karga-server gives up on it; `karga status` says so and why. `karga reconcile
@@ -1064,7 +1084,8 @@ Restore on a new host, in this order:
 
 1. Install karga and Docker.
 2. Stop karga-server, unpack the backup into `/var/lib` (owner `karga`) and start it again.
-   `karga list` and `karga history` now show your releases.
+   `karga list` and `karga history` now show your releases. karga-server does not create their
+   volumes on its own (they would be empty): until step 3, `karga status` shows the repair failing.
 3. For each release, upgrade from its package; the plan creates everything missing on this host:
 
    ```console
