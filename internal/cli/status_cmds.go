@@ -133,15 +133,18 @@ func (a *app) printStatus(ctx context.Context, s api.Backend, name string) (*api
 }
 
 func newReconcileCmds(a *app) []*cobra.Command {
+	var emptyVolumes bool
 	reconcile := &cobra.Command{
 		Use:   "reconcile <release>",
 		Short: "Repair a release now: bring what runs back to its current revision",
 		Long: "karga-server does this on its own after container events and every 30 seconds. This runs it now\n" +
-			"and forgets earlier failed repairs. It never changes the revision or the values.",
+			"and forgets earlier failed repairs. It never changes the revision or the values. A Volume missing\n" +
+			"in Docker is not created: its files are gone. --empty-volumes creates it, empty; 'karga volume\n" +
+			"restore' then puts a backup back.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := a.backend()
-			res, err := s.Reconcile(cmd.Context(), api.ReconcileRequest{Name: args[0], Force: true})
+			res, err := s.Reconcile(cmd.Context(), api.ReconcileRequest{Name: args[0], Force: true, EmptyVolumes: emptyVolumes})
 			if err != nil {
 				return err
 			}
@@ -251,6 +254,7 @@ func newReconcileCmds(a *app) []*cobra.Command {
 	}
 	events.Flags().IntVarP(&limit, "limit", "n", 20, "how many events")
 	events.Flags().BoolVarP(&follow, "follow", "f", false, "keep printing new events")
+	reconcile.Flags().BoolVar(&emptyVolumes, "empty-volumes", false, "create the release's Volumes missing in Docker, empty")
 	return []*cobra.Command{reconcile, pause("pause", "Stop karga-server from repairing a release (for maintenance)", true),
 		pause("resume", "Let karga-server repair a release again", false), events}
 }

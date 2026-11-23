@@ -6,6 +6,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- `karga reconcile --empty-volumes`: create a release's volumes that are missing in Docker, empty
+  (karga-server no longer does on its own repairs); USAGE §11.
 - `karga volume undo-restore <release> <volume>`: put back the files a volume had before its last
   restore (its restore point).
 - `volume restore --merge` (write over the files, as before) and `--no-restore-point`. Restore and
