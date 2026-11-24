@@ -1071,7 +1071,8 @@ Release "demo" resumed: karga-server will repair it.
 ```
 
 `karga events [release] [-f]` lists every command and repair, newest last; `journalctl -u
-karga-server` shows the server's side.
+karga-server` shows the server's side: each operation's start and end, a failed one at warning
+level (`journalctl -u karga-server -p warning`).
 
 ## 12. Back up and move a host
 
