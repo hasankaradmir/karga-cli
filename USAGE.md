@@ -467,7 +467,7 @@ listener pg added (tcp on port 15432)
   |--------|-----------|--------|
   | `--timeout` | http, https | Longest a request may take; the gateway answers 504 after it. Default: none. |
   | `--idle-timeout` | all | Closes a request, a WebSocket or a tcp connection that sends nothing either way for that long. Default: 5m (http), 1h (tcp). |
-  | `--max-body` | http, https | Largest request body, at most `16Mi` (the gateway holds it in memory); 413 beyond it. Larger uploads are limited by the application. |
+  | `--max-body` | http, https | Largest request body, at most `16Mi`; 413 beyond it. The gateway holds each request's body in memory, and its memory is 128Mi: a few large uploads at once can exhaust it. Larger uploads are limited by the application. |
   | `--rate-limit` | http, https | Requests per second or minute (`100/s`, `600/m`) for the whole listener (an https listener counts each host on its own); 429 beyond it. |
   | `--proxy-protocol` | tcp | Sends the client's address first on every connection (`v1` or `v2`). The backend must expect it (PostgreSQL does not; HAProxy, nginx `proxy_protocol` and most mail servers do). |
   | `--redirect-https` | http | Answers plain requests for the hosts an https listener serves (and this one does not) with a redirect to that listener's port. The default `http` listener has it. |
@@ -615,7 +615,10 @@ $ karga install db examples/postgres --set database.password=s3cret-pw --set ser
 Error: Service "postgres": expose postgres on listener pg: no such gateway listener; the host's administrator adds it with 'karga gateway listener add pg --port <port> --protocol tcp|http|https'
 ```
 
-Applications behind http and https listeners receive the client address in `x-forwarded-for`; tcp
+Applications behind http and https listeners receive the client address in `x-forwarded-for`, and
+only it: a value the client sent is replaced, so it cannot pass for another address (behind a CDN or
+load balancer, the address is theirs). A client must send its request headers within 10 seconds,
+and a connection without requests is closed after an hour; https takes TLS 1.2 or newer. tcp
 backends receive it with the listener's `--proxy-protocol`. Unless the listener sets a `--timeout`,
 requests may take as long as they need (uploads, server-sent events, long polls) and WebSocket
 connections pass through; a request or WebSocket that sends nothing either way for 5 minutes (the
