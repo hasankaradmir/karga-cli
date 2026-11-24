@@ -1,3 +1,4 @@
-NAME  REVISION  STATUS    PACKAGE   VERSION  UPDATED
-web   2         deployed  shop      1.1.0    2026-11-18 09:30:00 +00:00
-db    1         failed    postgres  16.4.0   2026-11-18 09:30:00 +00:00
+NAME  REVISION  STATUS      PACKAGE   VERSION  UPDATED
+web   2         deployed    shop      1.1.0    2026-11-18 09:30:00 +00:00
+db    1         failed      postgres  16.4.0   2026-11-18 09:30:00 +00:00
+old   0         unreadable                     

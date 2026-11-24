@@ -68,6 +68,7 @@ func TestGoldenOutput(t *testing.T) {
 			f.releases = []api.Release{
 				{Name: "web", Status: api.StatusDeployed, CurrentRevision: 2, PackageName: "shop", PackageVersion: "1.1.0", UpdatedAt: at},
 				{Name: "db", Status: api.StatusFailed, CurrentRevision: 1, PackageName: "postgres", PackageVersion: "16.4.0", UpdatedAt: at},
+				{Name: "old", Status: api.StatusUnreadable},
 			}
 		}, []string{"list"}},
 		{"history", func(f *fake) { f.history = history }, []string{"history", "r"}},

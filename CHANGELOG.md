@@ -77,6 +77,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `karga list` failed for every release when one release's state file was damaged; it shows that
+  one as `unreadable` (red, without a date) now (karga-server); USAGE error table.
 - `volume restore` of a backup cut short emptied the volume and started the workloads on what it
   had written; a restore that failed writing (Docker, a full disk) started them on an empty or half
   written volume. The backup is read to its end before anything changes, and a failed write leaves

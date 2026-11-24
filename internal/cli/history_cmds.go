@@ -15,7 +15,12 @@ import (
 
 // when writes a time in local time with its UTC offset, so it can be compared with logs in UTC
 // (the gateway's access log) or from another host.
-func when(t time.Time) string { return t.Local().Format("2006-01-02 15:04:05 -07:00") }
+func when(t time.Time) string {
+	if t.IsZero() { // not known (an unreadable release)
+		return ""
+	}
+	return t.Local().Format("2006-01-02 15:04:05 -07:00")
+}
 
 func newHistoryCmd(a *app) *cobra.Command {
 	var withDiff bool
