@@ -97,7 +97,7 @@ func stateColor(cell string) string {
 	case api.HealthHealthy, api.ActualRunning, api.StatusDeployed, api.DesiredApplied, api.ActualPresent,
 		api.OperationSucceeded, api.ActualRouted:
 		return colorGreen
-	case api.StatusFailed, api.ActualMissing, api.ActualExited, api.ActualNotRouted, "dead", api.OperationAborted:
+	case api.StatusFailed, api.StatusUnreadable, api.ActualMissing, api.ActualExited, api.ActualNotRouted, "dead", api.OperationAborted:
 		return colorRed
 	case api.HealthStarting, api.StatusPending, api.StatusDeploying, api.StatusUpgrading, api.StatusUninstalling,
 		api.ActualCreated, "restarting":
