@@ -77,6 +77,9 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- USAGE §6: the gateway's `x-forwarded-for` holds only the client address now, request headers
+  have 10 seconds, idle connections an hour, https TLS 1.2 or newer (karga-server); `--max-body`
+  notes the gateway's memory.
 - USAGE error table: a backup needs room under the server's `KARGA_HOME` for its copy.
 - `karga list` failed for every release when one release's state file was damaged; it shows that
   one as `unreadable` (red, without a date) now (karga-server); USAGE error table.
