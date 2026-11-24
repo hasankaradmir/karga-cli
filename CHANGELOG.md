@@ -6,6 +6,7 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- USAGE §11: karga-server logs each operation's end; failed ones at warning level.
 - `karga reconcile --empty-volumes`: create a release's volumes that are missing in Docker, empty
   (karga-server no longer does on its own repairs); USAGE §11.
 - `karga volume undo-restore <release> <volume>`: put back the files a volume had before its last
