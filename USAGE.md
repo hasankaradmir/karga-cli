@@ -976,6 +976,7 @@ the client says the user agreed, so no client skips the question.
 | `workload X keeps restarting (N restarts, last exit code C)` | The container crashes as it starts; `karga logs` it. |
 | `... copied, but workload W did not get ready` / `... restored, but ...` | The volume operation did its work (the backup file is complete and kept, the files are in place); W failed its health check after starting again: `karga logs` it. |
 | `unreadable` in `karga list` / `.../release.yaml: yaml: ...` or `is incomplete` | The release's state file under `$KARGA_HOME/state` is damaged (a disk error, a hand edit); `karga status R` names it. Put it back from a backup of `$KARGA_HOME`; the other releases are not affected. |
+| `copy volume V: write .../tmp/karga-backup-...: no space left on device` | A backup is copied under the server's `KARGA_HOME` first, as large as the archive, wherever its file goes: free space there, or use `--live` (no copy there). |
 | `... is cut short or damaged` | The backup file is incomplete (a copy that stopped early) or corrupt; nothing was changed. |
 | `... may be empty or half written, so ... stay stopped and R is paused` | The restore failed writing the volume; restore again or `karga volume undo-restore`, then `karga resume R`. |
 | `volume V is missing in Docker, so its files are gone` | The volume was removed outside karga or its data lost: `karga reconcile R --empty-volumes`, then `karga volume restore R V <backup>`. |
