@@ -78,6 +78,10 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- Text karga-server sent (errors, events, progress, status) reached the terminal as it was: an
+  escape sequence in it could rewrite or recolor the screen. Its control characters are shown
+  escaped (`\x1b`); line breaks and tabs stay. JSON and YAML output are unchanged.
+- USAGE §16: the bounds of a request (karga-sdk).
 - `install.sh` moved the binary in place, which is not atomic across file systems, and into a
   directory only root may write it left it owned by the installing user. It is installed under a
   temporary name and renamed, root's (0755) where sudo was needed.

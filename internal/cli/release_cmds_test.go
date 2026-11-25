@@ -643,3 +643,17 @@ if [ -e "$D/fix" ]; then sed -i.bak 's/accessLog: bad/accessLog: false/' "$1"; f
 		t.Fatalf("no change:\n%s", out)
 	}
 }
+
+// Text karga-server sent is shown with its control characters escaped: an escape sequence in an
+// error or an event cannot rewrite the terminal (SC-21).
+func TestServerTextIsPrintable(t *testing.T) {
+	if got := Printable("bad\x1b[2J\x07name\nnext\tcol"); got != `bad\x1b[2J\x07name`+"\nnext\tcol" {
+		t.Fatalf("Printable: %q", got)
+	}
+	e := newCLIEnv(t)
+	e.f.recon = &api.ReconcileResult{Release: "r", Actions: []api.Step{{Kind: "Workload", Name: "web", Action: "start", Status: "failed", Error: "boom\x1b]0;pwned\x07"}}}
+	out, _ := e.run("reconcile", "r")
+	if strings.ContainsRune(out, 0x1b) || !strings.Contains(out, `boom\x1b]0;pwned\x07`) {
+		t.Fatalf("reconcile output: %q", out)
+	}
+}

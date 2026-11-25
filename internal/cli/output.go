@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/hasankaradmir/karga-sdk/api"
@@ -115,6 +116,11 @@ var stateColumns = map[string]bool{"STATUS": true, "DESIRED": true, "ACTUAL": tr
 func (a *app) table(header string, rows [][]string) error {
 	head := strings.Split(header, "\t")
 	all := append([][]string{head}, rows...)
+	for _, r := range all[1:] {
+		for i := range r {
+			r[i] = Printable(r[i])
+		}
+	}
 	var width []int
 	for _, r := range all {
 		for i, c := range r {
@@ -142,6 +148,26 @@ func (a *app) table(header string, rows [][]string) error {
 	_, err := io.WriteString(a.stdout, b.String())
 	return err
 }
+
+// Printable shows the control characters of s, text karga-server sent (an error, an event's
+// detail), as escapes: an escape sequence in it cannot rewrite or recolor the terminal. Line
+// breaks and tabs stay.
+func Printable(s string) string {
+	if strings.IndexFunc(s, isEscaped) < 0 {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if isEscaped(r) {
+			fmt.Fprintf(&b, "\\x%02x", r)
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+func isEscaped(r rune) bool { return unicode.IsControl(r) && r != '\n' && r != '\t' }
 
 // paint colors one state word when tables are colored.
 func (a *app) paint(word string) string {
