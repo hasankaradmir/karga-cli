@@ -78,6 +78,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `lint`, `template` and the server's renders stop a template that would exhaust memory, and their
+  errors show writeOnly values as `<redacted>` (karga-sdk).
 - Text karga-server sent (errors, events, progress, status) reached the terminal as it was: an
   escape sequence in it could rewrite or recolor the screen. Its control characters are shown
   escaped (`\x1b`); line breaks and tabs stay. JSON and YAML output are unchanged.
