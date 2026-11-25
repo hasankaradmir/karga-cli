@@ -148,8 +148,9 @@ redis/
 
 A package directory is read without `.git` and without what `.kargaignore` lists (`*.env`,
 `build/`, ...), at most 10000 files and 32 MiB. Rendering is bounded too: `include` and `tpl` nest
-at most 100 deep, a render takes at most 10 seconds and writes at most 16 MiB, and its `range` loops
-run at most 1,000,000 iterations together.
+at most 100 deep, a render takes at most 10 seconds and writes at most 16 MiB, its `range` loops
+run at most 1,000,000 iterations together, and no function returns more than 16 MiB of text or
+1,000,000 elements.
 
 ```yaml
 # Package.yaml
