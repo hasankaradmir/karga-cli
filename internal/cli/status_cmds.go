@@ -148,8 +148,13 @@ func newReconcileCmds(a *app) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			// A repair that failed fails the command (exit 1), after it said what failed.
+			failed := slices.ContainsFunc(res.Actions, func(st api.Step) bool { return st.Error != "" })
 			if a.structured() {
-				return a.write(res)
+				if err := a.write(res); err != nil || !failed {
+					return err
+				}
+				return &ExitCodeError{Code: ExitFailure}
 			}
 			switch {
 			case res.Skipped != "":
@@ -165,6 +170,9 @@ func newReconcileCmds(a *app) []*cobra.Command {
 					}
 					_, _ = fmt.Fprintln(a.stdout, line)
 				}
+			}
+			if err == nil && failed {
+				err = &ExitCodeError{Code: ExitFailure}
 			}
 			return err
 		},

@@ -104,8 +104,11 @@ func TestRequestTimeout(t *testing.T) {
 		t.Fatalf("list should give up after the timeout: %v after %s", err, time.Since(start))
 	}
 	cmd := e.root(io.Discard, io.Discard)
-	for path, want := range map[string]bool{"install": true, "logs": true, "list": false, "status": false} {
-		c, _, err := cmd.Find([]string{path})
+	// An editor or a confirmation must not run against the clock (SC-02, SC-03).
+	for path, want := range map[string]bool{"install": true, "logs": true, "list": false, "status": false,
+		"gateway edit": true, "gateway apply": true, "gateway rollback": true, "gateway set listen": true,
+		"gateway listener remove": true, "volume undo-restore": true, "gateway set access-log": false} {
+		c, _, err := cmd.Find(strings.Fields(path))
 		if err != nil {
 			t.Fatal(err)
 		}

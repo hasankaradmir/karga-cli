@@ -944,8 +944,10 @@ fields are only added within an API major version, never renamed or removed, so 
 on them.
 
 Commands that only ask karga-server something give up after `--request-timeout` (default `30s`;
-`0` waits for ever). Deployments, `uninstall`, `reconcile`, `logs`, `exec`, backups and
-`--watch`/`-f` are not bounded.
+`0` waits for ever). Deployments, `uninstall`, `reconcile`, `logs`, `exec`, volume backup, restore
+and undo-restore, `--watch`/`-f`, and the gateway commands that open an editor or ask first (`gateway
+edit`, `apply`, `rollback`, `set listen`, `listener remove`) are not bounded: a timeout would end an
+edit or run while you answer.
 
 Commands that delete data or expose services ask first on a terminal: `uninstall`, `volume
 restore`, `volume undo-restore`, `gateway set listen` with an address other than loopback, `gateway listener remove`, and
@@ -956,13 +958,13 @@ the client says the user agreed, so no client skips the question.
 | Exit code | Meaning |
 |---|---|
 | 0 | Done; `karga status`: the release is deployed and healthy |
-| 1 | Any other failure (`karga lint`: a package has errors; a question answered no) |
+| 1 | Any other failure (`karga lint`: a package has errors; `karga reconcile`: a repair failed; a question answered no) |
 | 2 | Wrong arguments, flags or subcommand, a confirmation needs `--yes`, or karga-server refused the request as given (an invalid name, package or values) |
 | 3 | karga-server is not running, did not answer in time, went away, or is too old for the request (another API major, or a field or endpoint it does not know) |
 | 4 | The release, revision or resource does not exist |
 | 5 | Another operation holds the release, or it exists already |
 | 6 | `karga status`: the release is not deployed and healthy (failed, missing, unhealthy or starting, or a Service routed nowhere) |
-| 7 | karga stopped waiting (Ctrl-C) for an operation that goes on in karga-server: `karga events <release> -f` follows it |
+| 7 | karga stopped waiting (Ctrl-C) after its request went out: what it asked for goes on in karga-server (`karga events <release> -f` follows an operation) |
 | other | `karga exec`: the command's own exit code |
 
 ### Common errors

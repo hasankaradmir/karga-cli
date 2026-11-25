@@ -78,6 +78,12 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `karga gateway edit` was bounded by `--request-timeout`: after 30 seconds the editor was killed
+  and the edit lost. It, `gateway apply`, `rollback`, `set listen`, `listener remove` and `volume
+  undo-restore` are not bounded now: the clock ran while they asked for a confirmation too.
+- Exit codes match USAGE §11: Ctrl-C once a request went out exits 7 (was 1), and karga-server going
+  away during a log, a backup's download, an exec or an upload exits 3 (was 1, `unexpected EOF`)
+  (karga-sdk). `karga reconcile` exits 1 when a repair failed (was 0).
 - USAGE §11: a repair needed again within 10 minutes counts as failed, and karga tries again 10
   minutes after giving up (karga-server).
 - USAGE §6: the gateway's `x-forwarded-for` holds only the client address now, request headers
