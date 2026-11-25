@@ -78,6 +78,9 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `install.sh` moved the binary in place, which is not atomic across file systems, and into a
+  directory only root may write it left it owned by the installing user. It is installed under a
+  temporary name and renamed, root's (0755) where sudo was needed.
 - `gateway apply`, `rollback` and `edit` with `-o json` wrote two JSON documents (the plan, then the
   revision), which `jq` and other parsers refuse; they write one, `{plan, revision}`. USAGE §6.
 - `get values` printed large whole numbers as floats (`1e+06` in YAML), which an upgrade from that

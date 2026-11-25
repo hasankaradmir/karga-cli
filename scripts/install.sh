@@ -52,11 +52,14 @@ elif [ "${KARGA_SKIP_SIGNATURE:-0}" != 1 ]; then
 fi
 
 tar -xzf "$tmp/$archive" -C "$tmp"
+# Under a temporary name next to it, then renamed: nothing ever runs half a file. A directory
+# only root may write gets a binary only root may write (0755), not the installing user's.
 if [ -w "$bin_dir" ]; then
-  mv "$tmp/karga" "$bin_dir/karga"
-elif [ "$(id -u)" = 0 ]; then
-  mv "$tmp/karga" "$bin_dir/karga"
+  install -m 0755 "$tmp/karga" "$bin_dir/.karga.new"
+  mv -f "$bin_dir/.karga.new" "$bin_dir/karga"
 else
-  sudo mv "$tmp/karga" "$bin_dir/karga"
+  as_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi; }
+  as_root install -o root -g root -m 0755 "$tmp/karga" "$bin_dir/.karga.new"
+  as_root mv -f "$bin_dir/.karga.new" "$bin_dir/karga"
 fi
 echo "karga $version installed to $bin_dir/karga"
