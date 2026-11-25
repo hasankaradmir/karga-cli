@@ -952,8 +952,10 @@ edit`, `apply`, `rollback`, `set listen`, `listener remove`) are not bounded: a 
 edit or run while you answer.
 
 Commands that delete data or expose services ask first on a terminal: `uninstall`, `volume
-restore`, `volume undo-restore`, `gateway set listen` with an address other than loopback, `gateway listener remove`, and
-`upgrade`/`rollback` with `--delete-volumes`. In a script (stdin is not a terminal) they need
+restore`, `volume undo-restore`, `gateway set listen` with an address other than loopback, `gateway listener remove`,
+`gateway apply`, `rollback` and `edit` when the change carries a risk, and `upgrade`/`rollback` with
+`--delete-volumes`. `gateway listener add` does not ask: a new listener serves only what is exposed
+on it. In a script (stdin is not a terminal) they need
 `--yes` (`-y`); `--dry-run` shows what they would do. karga-server refuses these requests unless
 the client says the user agreed, so no client skips the question.
 
@@ -1499,6 +1501,8 @@ A new package version (a new `version` in `Package.yaml`) is upgraded the same w
   `karga rollback`. The `replace` strategy avoids this where it applies (section 7).
 - TLS certificates come from Secrets: you get and renew them yourself (renew by upgrading with the
   new one); there is no ACME.
+- A `writeOnly` value is recognized as itself and as its base64: one a template transforms (`upper`,
+  `quote`, `toJson`, a hash) is neither refused outside a Secret nor redacted.
 - A request takes at most 1000 `--set`, 100 `-f` files of 4 MiB each, 10000 events and 100000 log
   lines per container (`--tail`).
 

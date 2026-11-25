@@ -6,6 +6,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- USAGE: the gateway commands that ask first; §16: a transformed `writeOnly` value is not
+  recognized. README: `logs` writes raw lines whatever `-o` says.
 - USAGE §11: karga-server logs each operation's end; failed ones at warning level.
 - `karga reconcile --empty-volumes`: create a release's volumes that are missing in Docker, empty
   (karga-server no longer does on its own repairs); USAGE §11.
