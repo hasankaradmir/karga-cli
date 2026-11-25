@@ -1496,5 +1496,7 @@ A new package version (a new `version` in `Package.yaml`) is upgraded the same w
   `karga rollback`. The `replace` strategy avoids this where it applies (section 7).
 - TLS certificates come from Secrets: you get and renew them yourself (renew by upgrading with the
   new one); there is no ACME.
+- A request takes at most 1000 `--set`, 100 `-f` files of 4 MiB each, 10000 events and 100000 log
+  lines per container (`--tail`).
 
 The full list, with what is planned, is in karga-server's [docs/roadmap.md](https://github.com/hasankaradmir/karga-server/blob/master/docs/roadmap.md).

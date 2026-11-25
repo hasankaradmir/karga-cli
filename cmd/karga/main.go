@@ -21,7 +21,7 @@ func main() {
 	stop()
 	var exit *cli.ExitCodeError
 	if err != nil && !errors.As(err, &exit) { // with its own exit code, a command printed what it had to say
-		fmt.Fprintln(os.Stderr, "Error:", err)
+		fmt.Fprintln(os.Stderr, "Error:", cli.Printable(err.Error()))
 		if hint := cli.Hint(err); hint != "" {
 			fmt.Fprintln(os.Stderr, "Hint:", hint)
 		}

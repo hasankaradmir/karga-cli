@@ -46,7 +46,7 @@ func newGatewayCmd(a *app) *cobra.Command {
 			case health.Ready:
 				state += ", ready (Envoy " + health.Version + ")"
 			case health.Error != "":
-				state += ", admin API unreachable: " + health.Error
+				state += ", admin API unreachable: " + Printable(health.Error)
 			default:
 				state += ", not ready"
 			}

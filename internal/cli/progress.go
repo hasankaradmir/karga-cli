@@ -40,6 +40,7 @@ func (p *progressPrinter) event(ev api.Event) {
 	if ev.Phase == api.PhaseDone {
 		line = fmt.Sprintf("[%4s] %s %s: %s done", time.Since(p.start).Round(time.Second), strings.ToLower(ev.Kind), ev.Name, ev.Detail)
 	}
+	line = Printable(line)
 	if !p.tty {
 		_, _ = fmt.Fprintln(p.w, line)
 		return

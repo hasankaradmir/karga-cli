@@ -90,7 +90,7 @@ func (a *app) printStatus(ctx context.Context, s api.Backend, name string) (*api
 		if !rc.Last.IsZero() {
 			line = when(rc.Last) + ", " + rc.Status
 			if rc.Error != "" {
-				line += ": " + rc.Error
+				line += ": " + Printable(rc.Error)
 			}
 		}
 		if r.Paused {
@@ -166,7 +166,7 @@ func newReconcileCmds(a *app) []*cobra.Command {
 				for _, st := range res.Actions {
 					line := fmt.Sprintf("  %s %s %s: %s", st.Action, strings.ToLower(st.Kind), st.Name, st.Status)
 					if st.Error != "" {
-						line += " (" + st.Error + ")"
+						line += " (" + Printable(st.Error) + ")"
 					}
 					_, _ = fmt.Fprintln(a.stdout, line)
 				}
