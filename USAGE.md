@@ -1050,9 +1050,11 @@ What it never does:
     create workload redis: done
   ```
 
-A repair that fails is retried with growing pauses (10 seconds doubling to 5 minutes). After 5
-failures in 10 minutes karga-server gives up on it; `karga status` says so and why. `karga reconcile
-<release>` repairs now and forgets the failures:
+A repair that fails is retried with growing pauses (10 seconds doubling to 5 minutes); so is one
+needed again within 10 minutes (a container that crashes right after each start), which counts as
+failed. After 5 failures in 10 minutes karga-server gives up on it; `karga status` says so and why.
+It tries again once those failures are 10 minutes old. `karga reconcile <release>` repairs now and
+forgets the failures:
 
 ```console
 $ karga reconcile demo

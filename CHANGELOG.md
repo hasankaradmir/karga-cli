@@ -78,6 +78,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- USAGE §11: a repair needed again within 10 minutes counts as failed, and karga tries again 10
+  minutes after giving up (karga-server).
 - USAGE §6: the gateway's `x-forwarded-for` holds only the client address now, request headers
   have 10 seconds, idle connections an hour, https TLS 1.2 or newer (karga-server); `--max-body`
   notes the gateway's memory.
