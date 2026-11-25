@@ -78,6 +78,10 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `gateway apply`, `rollback` and `edit` with `-o json` wrote two JSON documents (the plan, then the
+  revision), which `jq` and other parsers refuse; they write one, `{plan, revision}`. USAGE §6.
+- `get values` printed large whole numbers as floats (`1e+06` in YAML), which an upgrade from that
+  file could take wrongly or refuse (`type: integer`); they stay integers (karga-sdk).
 - `karga gateway edit` was bounded by `--request-timeout`: after 30 seconds the editor was killed
   and the edit lost. It, `gateway apply`, `rollback`, `set listen`, `listener remove` and `volume
   undo-restore` are not bounded now: the clock ran while they asked for a confirmation too.

@@ -540,6 +540,15 @@ func TestGatewayDocuments(t *testing.T) {
 		t.Fatalf("a risk without --yes: %v %v", err, e.f.calls)
 	}
 	e.mustRun("gateway", "apply", "-f", file, "--yes")
+	// -o json is one document: the plan and the revision (SC-08).
+	var applied struct {
+		Plan     api.GatewayPlan     `json:"plan"`
+		Revision api.GatewayRevision `json:"revision"`
+	}
+	if out := e.mustRun("gateway", "apply", "-f", file, "--yes", "-o", "json"); json.Unmarshal([]byte(out), &applied) != nil ||
+		applied.Revision.Revision != 7 || len(applied.Plan.Changes) == 0 {
+		t.Fatalf("apply -o json:\n%s", out)
+	}
 	e.f.gatewayPlan.Problems = []string{"listener web is used by site/web; remove those exposures first"}
 	e.f.calls = nil
 	if _, err := e.run("gateway", "apply", "-f", file, "--yes"); ExitCode(err) != 2 || slices.Contains(e.f.calls, "apply apply DOC") {
