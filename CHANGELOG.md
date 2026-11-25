@@ -78,6 +78,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- USAGE §14: a release's operations stay after an uninstall (`karga events`); `karga status` of a
+  release installed again shows its own repairs only (karga-server).
 - `lint`, `template` and the server's renders stop a template that would exhaust memory, and their
   errors show writeOnly values as `<redacted>` (karga-sdk).
 - Text karga-server sent (errors, events, progress, status) reached the terminal as it was: an
