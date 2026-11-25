@@ -128,15 +128,18 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 	})
 }
 
-// applyDocument shows what a gateway document changes, asks for its risk, and applies it.
+// applyDocument shows what a gateway document changes, asks for its risk, and applies it. With -o
+// json or yaml it writes one document: the plan, and the revision once applied.
 func (a *app) applyDocument(cmd *cobra.Command, content []byte, source string) error {
 	s := a.backend()
 	plan, err := s.DiffGateway(cmd.Context(), api.GatewayDocument{Content: content})
 	if err != nil {
 		return err
 	}
-	if err := a.printGatewayPlan(plan); err != nil || len(plan.Changes) == 0 {
-		return err
+	if !a.structured() || len(plan.Changes) == 0 || len(plan.Problems) > 0 {
+		if err := a.printGatewayPlan(plan); err != nil || len(plan.Changes) == 0 {
+			return err
+		}
 	}
 	if err := a.confirm(cmd, plan.Risk); err != nil {
 		return err
@@ -145,7 +148,14 @@ func (a *app) applyDocument(cmd *cobra.Command, content []byte, source string) e
 	if err != nil {
 		return err
 	}
-	return a.report(rev, "gateway settings applied (revision %d)\n", rev.Revision)
+	if a.structured() {
+		return a.write(struct {
+			Plan     api.GatewayPlan     `json:"plan"`
+			Revision api.GatewayRevision `json:"revision"`
+		}{plan, rev})
+	}
+	_, err = fmt.Fprintf(a.stdout, "gateway settings applied (revision %d)\n", rev.Revision)
+	return err
 }
 
 // readDocument reads a gateway document from path, or stdin for "-".

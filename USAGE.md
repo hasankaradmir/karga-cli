@@ -543,6 +543,8 @@ $ karga gateway edit              # the settings in force, in $KARGA_EDITOR or $
   ```
 - The gateway commands above (`listener add|set|remove`, `set listen|access-log`) apply a revision
   the same way; `karga gateway get` shows the result to keep your document current.
+- With `-o json` or `-o yaml`, `apply`, `rollback` and `edit` write one document: `plan` (what
+  changes) and `revision` (the one applied); with nothing to change, the plan alone.
 
 ### Expose a Service (the package)
 
