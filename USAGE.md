@@ -1188,6 +1188,9 @@ db-postgres-data
 
 - Volumes are kept (reinstalling `db` reuses them); `--delete-volumes` removes them.
 - `--keep-history` keeps the release's revisions in the state.
+- The release's operations stay, as a record of what was done and by whom: `karga events db` lists
+  them, the uninstall included, also after `db` is installed again (newest 200). `karga status`
+  of a release installed again shows its own repairs only.
 - The release proxy goes with the release; the gateway goes when nothing is exposed anymore. The
   gateway's listeners and listen addresses stay: they are the host's settings.
 
