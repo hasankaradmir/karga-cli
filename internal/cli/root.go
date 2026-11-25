@@ -130,11 +130,14 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	return root
 }
 
-// untimedCommands run as long as their work takes: deployments wait for workloads, the others stream.
+// untimedCommands run as long as their work takes: deployments wait for workloads, others stream,
+// open an editor or ask for a confirmation first (the clock must not run meanwhile).
 var untimedCommands = map[string]bool{
 	"karga install": true, "karga upgrade": true, "karga rollback": true, "karga uninstall": true,
 	"karga reconcile": true, "karga logs": true, "karga exec": true,
-	"karga volume backup": true, "karga volume restore": true,
+	"karga volume backup": true, "karga volume restore": true, "karga volume undo-restore": true,
+	"karga gateway edit": true, "karga gateway apply": true, "karga gateway rollback": true,
+	"karga gateway set listen": true, "karga gateway listener remove": true,
 }
 
 // untimed reports whether cmd is left unbounded by --request-timeout.

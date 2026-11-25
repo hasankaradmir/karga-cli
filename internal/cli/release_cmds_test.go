@@ -313,6 +313,11 @@ func TestReconcileCommands(t *testing.T) {
 	if e.mustRun("reconcile", "--empty-volumes", "r"); !e.f.reconReq.EmptyVolumes {
 		t.Fatalf("--empty-volumes: %+v", e.f.reconReq)
 	}
+	// A repair that failed fails the command, after it says what failed.
+	e.f.recon = &api.ReconcileResult{Release: "r", Actions: []api.Step{{Kind: "Volume", Name: "data", Action: "create", Status: "failed", Error: "volume data is missing"}}}
+	if out, err := e.run("reconcile", "r"); ExitCode(err) != ExitFailure || !strings.Contains(out, "create volume data: failed (volume data is missing)") {
+		t.Fatalf("failed repair: exit %d\n%s", ExitCode(err), out)
+	}
 	e.f.recon = &api.ReconcileResult{Release: "r", Skipped: "paused"}
 	if out := e.mustRun("reconcile", "r"); !strings.Contains(out, "not reconciled: paused") {
 		t.Fatalf("skipped:\n%s", out)
