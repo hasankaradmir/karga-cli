@@ -195,14 +195,10 @@ func newListenerCmd(a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if a.structured() {
-				return a.write(map[string]any{"listen": settings.Listen, "listeners": settings.Listeners, "users": users})
-			}
-			var rows [][]string
-			for _, l := range settings.Listeners {
-				rows = append(rows, []string{l.Name, strconv.Itoa(l.Port), l.Protocol, optionsText(l.ListenerOptions), strings.Join(users[l.Name], ", ")})
-			}
-			return a.table("NAME\tPORT\tPROTOCOL\tOPTIONS\tSERVICES", rows)
+			v := map[string]any{"listen": settings.Listen, "listeners": settings.Listeners, "users": users}
+			return showTable(a, v, settings.Listeners, "NAME\tPORT\tPROTOCOL\tOPTIONS\tSERVICES", func(_ int, l api.Listener) []string {
+				return []string{l.Name, strconv.Itoa(l.Port), l.Protocol, optionsText(l.ListenerOptions), strings.Join(users[l.Name], ", ")}
+			})
 		},
 	})
 	var l api.Listener
