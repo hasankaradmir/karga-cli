@@ -34,22 +34,17 @@ func newHistoryCmd(a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if a.structured() {
-				return a.write(revs)
-			}
 			header := "REVISION\tSTATUS\tPACKAGE\tVERSION\tCREATED\tDESCRIPTION"
 			if withDiff {
 				header += "\tCHANGES"
 			}
-			var rows [][]string
-			for i, r := range revs {
+			return showTable(a, revs, revs, header, func(i int, r api.Revision) []string {
 				row := []string{strconv.Itoa(r.Number), string(r.Status), r.PackageName, r.PackageVersion, when(r.CreatedAt), truncate(r.Description, 60)}
 				if withDiff {
 					row = append(row, changeSummary(cmd.Context(), s, revs, i))
 				}
-				rows = append(rows, row)
-			}
-			return a.table(header, rows)
+				return row
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&withDiff, "diff", false, "add what changed since the previous revision")
@@ -83,14 +78,9 @@ func newListCmd(a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if a.structured() {
-				return a.write(rels)
-			}
-			var rows [][]string
-			for _, r := range rels {
-				rows = append(rows, []string{r.Name, strconv.Itoa(r.CurrentRevision), string(r.Status), r.PackageName, r.PackageVersion, when(r.UpdatedAt)})
-			}
-			return a.table("NAME\tREVISION\tSTATUS\tPACKAGE\tVERSION\tUPDATED", rows)
+			return showTable(a, rels, rels, "NAME\tREVISION\tSTATUS\tPACKAGE\tVERSION\tUPDATED", func(_ int, r api.Release) []string {
+				return []string{r.Name, strconv.Itoa(r.CurrentRevision), string(r.Status), r.PackageName, r.PackageVersion, when(r.UpdatedAt)}
+			})
 		},
 	}
 }

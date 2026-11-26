@@ -191,6 +191,19 @@ func toYAML(v any) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// showTable prints v for programs and, for people, a table of items: header, then row(i, item) for
+// each.
+func showTable[T any](a *app, v any, items []T, header string, row func(int, T) []string) error {
+	if a.structured() {
+		return a.write(v)
+	}
+	rows := make([][]string, 0, len(items))
+	for i, it := range items {
+		rows = append(rows, row(i, it))
+	}
+	return a.table(header, rows)
+}
+
 // report ends a command that changed something: v for programs, the formatted line for people.
 func (a *app) report(v any, format string, args ...any) error {
 	if a.structured() {
