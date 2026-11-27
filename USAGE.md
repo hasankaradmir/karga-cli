@@ -1357,7 +1357,7 @@ What it does:
   nothing outside the release can reach it.
 - **Workload `api`** starts only once Postgres is ready (`dependsOn`). Its health check is karga's
   (`type: http`, the image has no shell), so upgrades replace it without downtime (section 7).
-- **Service `api`** exposes it on the `web` listener for the host name in `host`.
+- **Service `api`** exposes it on the listener in `listener` (`http`) for the host name in `host`.
 - `NOTES.txt` is printed after each install and upgrade:
   `{{ .Release.Name }} serves http://{{ .Values.host }}/ through the gateway listener {{ .Values.listener }}.`
 
