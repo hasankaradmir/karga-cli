@@ -6,6 +6,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- Shell completion of listener names (`gateway listener set`/`remove`), gateway settings revisions
+  (`gateway rollback`, `gateway get --revision`) and listener protocols (`listener add --protocol`).
 - USAGE: the gateway commands that ask first; §16: a transformed `writeOnly` value is not
   recognized. README: `logs` writes raw lines whatever `-o` says.
 - USAGE §11: karga-server logs each operation's end; failed ones at warning level.

@@ -360,6 +360,8 @@ func TestDynamicCompletion(t *testing.T) {
 	e.f.releases = []api.Release{{Name: "redis1"}, {Name: "web1"}}
 	e.f.applied = []api.AppliedResource{{Kind: "Workload", Name: "api"}, {Kind: "Workload", Name: "web"}, {Kind: "Volume", Name: "data"}}
 	e.f.history = []api.Revision{{Number: 1, Status: api.RevisionDeployed}, {Number: 2, Status: api.RevisionDeployed}}
+	e.f.settings = api.Settings{Listeners: []api.Listener{{Name: "http", Port: 80, Protocol: "http"}, {Name: "pg", Port: 15432, Protocol: "tcp"}}}
+	e.f.gatewayRevs = []api.GatewayRevision{{Revision: 1, Source: "listener add http"}, {Revision: 2, Source: "apply"}}
 	for _, tc := range []struct {
 		args []string
 		want string
@@ -370,6 +372,11 @@ func TestDynamicCompletion(t *testing.T) {
 		{[]string{"volume", "backup", "web1", ""}, "data"},
 		{[]string{"rollback", "web1", ""}, "2 1"},
 		{[]string{"events", ""}, "redis1 web1"},
+		{[]string{"gateway", "listener", "set", ""}, "http pg"},
+		{[]string{"gateway", "listener", "remove", "p"}, "pg"},
+		{[]string{"gateway", "rollback", ""}, "2 1"},
+		{[]string{"gateway", "get", "--revision", ""}, "2 1"},
+		{[]string{"gateway", "listener", "add", "x", "--protocol", ""}, "tcp http https"},
 	} {
 		if got := complete(tc.args...); got != tc.want {
 			t.Errorf("complete %v: got %q, want %q", tc.args, got, tc.want)

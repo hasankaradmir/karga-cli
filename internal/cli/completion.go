@@ -61,6 +61,29 @@ func completeRevision(a *app, args []string) ([]string, cobra.ShellCompDirective
 	}), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
+func completeListener(a *app, _ []string) ([]string, cobra.ShellCompDirective) {
+	return a.ask(func(ctx context.Context, b api.Backend) []string {
+		settings, _, _ := b.GatewaySettings(ctx)
+		var out []string
+		for _, l := range settings.Listeners {
+			out = append(out, l.Name+"\t"+l.Protocol+" "+strconv.Itoa(l.Port))
+		}
+		return out
+	}), cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeGatewayRevision offers the gateway settings revisions kept, newest first.
+func completeGatewayRevision(a *app, _ []string) ([]string, cobra.ShellCompDirective) {
+	return a.ask(func(ctx context.Context, b api.Backend) []string {
+		revs, _ := b.GatewayHistory(ctx)
+		var out []string
+		for i := len(revs) - 1; i >= 0; i-- {
+			out = append(out, strconv.Itoa(revs[i].Revision)+"\t"+revs[i].Source)
+		}
+		return out
+	}), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
+}
+
 func completeDir(*app, []string) ([]string, cobra.ShellCompDirective) {
 	return nil, cobra.ShellCompDirectiveFilterDirs
 }
@@ -120,4 +143,15 @@ func addCompletion(a *app, root *cobra.Command) {
 	set("volume backup", false, completeRelease, volume, completeFile)
 	set("volume restore", false, completeRelease, volume, completeFile)
 	set("volume undo-restore", false, completeRelease, volume)
+	set("gateway listener set", false, completeListener)
+	set("gateway listener remove", false, completeListener)
+	set("gateway rollback", false, completeGatewayRevision)
+	flag := func(path, name string, fn func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)) {
+		cmd, _, err := root.Find(strings.Fields(path))
+		if err != nil || cmd.CommandPath() != "karga "+path || cmd.RegisterFlagCompletionFunc(name, fn) != nil {
+			panic("completion for a flag that does not exist: " + path + " --" + name)
+		}
+	}
+	flag("gateway get", "revision", positional(a, true, completeGatewayRevision))
+	flag("gateway listener add", "protocol", cobra.FixedCompletions([]string{"tcp", "http", "https"}, cobra.ShellCompDirectiveNoFileComp))
 }
