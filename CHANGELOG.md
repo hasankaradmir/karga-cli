@@ -28,6 +28,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   `listener list` shows them in OPTIONS.
 
 ### Changed
+- `gateway listener add` warns on stderr when the gateway listens on an address other than
+  loopback: the new listener is reachable from other hosts.
 - A timeout (`--request-timeout`) of `pause`, `resume`, `gateway set access-log` or `gateway listener
   add`/`set` exits 7, not 3: karga-server may have applied the change, and the message says how to
   check.

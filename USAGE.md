@@ -960,7 +960,8 @@ Commands that delete data or expose services ask first on a terminal: `uninstall
 restore`, `volume undo-restore`, `gateway set listen` with an address other than loopback, `gateway listener remove`,
 `gateway apply`, `rollback` and `edit` when the change carries a risk, and `upgrade`/`rollback` with
 `--delete-volumes`. `gateway listener add` does not ask: a new listener serves only what is exposed
-on it. In a script (stdin is not a terminal) they need
+on it (it warns when the gateway listens on an address other than loopback, as the listener is then
+reachable from other hosts). In a script (stdin is not a terminal) they need
 `--yes` (`-y`); `--dry-run` shows what they would do. karga-server refuses these requests unless
 the client says the user agreed, so no client skips the question.
 

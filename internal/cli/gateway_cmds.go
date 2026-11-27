@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"net"
+	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
@@ -212,6 +214,13 @@ func newListenerCmd(a *app) *cobra.Command {
 			if err := s.AddGatewayListener(cmd.Context(), l); err != nil {
 				return err
 			}
+			// It asks nothing (a listener serves only what is exposed on it), but says when it is open
+			// to other hosts; the settings are read only for that.
+			if settings, _, err := s.GatewaySettings(cmd.Context()); err == nil {
+				if open := reachable(settings.Listen, l.Port); len(open) > 0 {
+					_, _ = fmt.Fprintf(a.stderr, "warning: listener %s is reachable from other hosts on %s\n", l.Name, strings.Join(open, ", "))
+				}
+			}
 			return a.report(l, "listener %s added (%s on port %d)\n", l.Name, l.Protocol, l.Port)
 		},
 	}
@@ -271,4 +280,17 @@ func newListenerCmd(a *app) *cobra.Command {
 		},
 	})
 	return cmd
+}
+
+// reachable are the addresses of listen, with port, that other hosts can reach: every one but a
+// loopback address (no listen is 127.0.0.1).
+func reachable(listen []string, port int) []string {
+	var out []string
+	for _, ip := range listen {
+		if a, err := netip.ParseAddr(ip); err == nil && a.IsLoopback() {
+			continue
+		}
+		out = append(out, net.JoinHostPort(ip, strconv.Itoa(port)))
+	}
+	return out
 }
