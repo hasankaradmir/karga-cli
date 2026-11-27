@@ -55,6 +55,8 @@ type fake struct {
 	restored string
 	// eventsFn answers Events when set (events -f tests).
 	eventsFn func(api.EventsRequest) ([]api.Operation, error)
+	// delay is how long each recorded call takes (timeout tests).
+	delay time.Duration
 	// backupReq and restoreReq are the last volume requests.
 	backupReq  api.VolumeBackupRequest
 	restoreReq api.VolumeRestoreRequest
@@ -66,8 +68,10 @@ type fake struct {
 
 func (f *fake) call(name string) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.calls = append(f.calls, name)
+	delay := f.delay
+	f.mu.Unlock()
+	time.Sleep(delay)
 }
 
 func (f *fake) deploy(progress func(api.Event)) (*api.Result, error) {

@@ -718,3 +718,20 @@ func TestEventsFollowShowsTheEnd(t *testing.T) {
 		t.Fatalf("end shown %d times, %d new operations:\n%s", ends, news, out)
 	}
 }
+
+// A timeout of a command bounded by --request-timeout that changes something may come after
+// karga-server applied it: exit 7 and how to check. A timed read stays exit 3.
+func TestTimedMutationTimeout(t *testing.T) {
+	e := newCLIEnv(t)
+	e.f.delay = 300 * time.Millisecond
+	for _, args := range [][]string{{"pause", "r"}, {"resume", "r"}, {"gateway", "listener", "add", "pg", "--port", "15432", "--protocol", "tcp"}} {
+		_, err := e.run(append(args, "--request-timeout", "50ms")...)
+		if c := ExitCode(err); c != ExitDetached || !strings.Contains(err.Error(), "may have applied it") || Hint(err) != "" {
+			t.Fatalf("%v: exit %d, %v, hint %q", args, c, err, Hint(err))
+		}
+	}
+	e.f.slow = 300 * time.Millisecond
+	if _, err := e.run("list", "--request-timeout", "50ms"); ExitCode(err) != ExitUnavailable {
+		t.Fatalf("list: exit %d", ExitCode(err))
+	}
+}

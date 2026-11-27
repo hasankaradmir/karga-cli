@@ -28,6 +28,9 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   `listener list` shows them in OPTIONS.
 
 ### Changed
+- A timeout (`--request-timeout`) of `pause`, `resume`, `gateway set access-log` or `gateway listener
+  add`/`set` exits 7, not 3: karga-server may have applied the change, and the message says how to
+  check.
 - USAGE §8 rewritten for the new volume backup and restore (what stops, `--live`, replace and `--merge`,
   restore points, interruptions); §2 shows API 4.0, §11 and §16 the new errors and limits.
 - API 4.0 (karga-sdk): `volume backup` stops the workloads writing to the volume by default; `--live`

@@ -973,7 +973,7 @@ the client says the user agreed, so no client skips the question.
 | 4 | The release, revision, resource or image does not exist |
 | 5 | Another operation holds the release, or it exists already |
 | 6 | `karga status`: the release is not deployed and healthy (failed, missing, unhealthy or starting, or a Service routed nowhere); with `--watch`, at its last refresh (`--count` reached or Ctrl-C) |
-| 7 | karga stopped waiting (Ctrl-C) after its request went out: what it asked for goes on in karga-server (`karga events <release> -f` follows an operation) |
+| 7 | karga stopped waiting (Ctrl-C) after its request went out: what it asked for goes on in karga-server (`karga events <release> -f` follows an operation). Also a timeout (`--request-timeout`) of `pause`, `resume`, `gateway set access-log` and `gateway listener add`/`set`: karga-server may have applied the change, and the message says how to check |
 | other | `karga exec`: the command's own exit code |
 
 ### Common errors

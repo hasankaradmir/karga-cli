@@ -59,8 +59,17 @@ func ExitCode(err error) int {
 	return ExitFailure
 }
 
+// mayHaveApplied is a timed mutation that timed out (ErrDetached, exit 7); it says how to check.
+type mayHaveApplied struct{ error }
+
+func (e mayHaveApplied) Unwrap() error { return e.error }
+
 // Hint is what to do after err, if karga knows ("" otherwise).
 func Hint(err error) string {
+	var applied mayHaveApplied
+	if errors.As(err, &applied) {
+		return ""
+	}
 	if errors.Is(err, api.ErrDetached) {
 		return "karga events <release> -f follows it; karga status <release> shows where it got"
 	}
