@@ -248,7 +248,8 @@ demo  1         deployed  shop     0.1.0    2026-11-17 17:59:08 +03:00
 
 [Section 6](#6-services-and-the-gateway) exposes it on the host. `karga exec demo web` without a
 command opens an interactive shell; `-it` gives any command a terminal. `karga logs demo -f`
-follows the logs; `karga status demo --watch` refreshes every two seconds.
+follows the logs; `karga status demo --watch` refreshes every two seconds (`--interval`, and
+`--count` to stop after so many refreshes).
 
 Installing the same package with the same values again does nothing: `Release "demo" is already
 installed with the same package and values`.
@@ -970,7 +971,7 @@ the client says the user agreed, so no client skips the question.
 | 3 | karga-server is not running, did not answer in time, went away, or is too old for the request (another API major, or a field or endpoint it does not know) |
 | 4 | The release, revision, resource or image does not exist |
 | 5 | Another operation holds the release, or it exists already |
-| 6 | `karga status`: the release is not deployed and healthy (failed, missing, unhealthy or starting, or a Service routed nowhere) |
+| 6 | `karga status`: the release is not deployed and healthy (failed, missing, unhealthy or starting, or a Service routed nowhere); with `--watch`, at its last refresh (`--count` reached or Ctrl-C) |
 | 7 | karga stopped waiting (Ctrl-C) after its request went out: what it asked for goes on in karga-server (`karga events <release> -f` follows an operation) |
 | other | `karga exec`: the command's own exit code |
 

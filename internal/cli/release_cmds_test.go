@@ -404,6 +404,18 @@ func TestExitCodes(t *testing.T) {
 	if c := code("status", "r"); c != ExitUnhealthy {
 		t.Fatalf("unhealthy status: %d", c)
 	}
+	// --watch ends as status does: unhealthy at its last refresh is exit 6, in text and -o json.
+	if c := code("status", "r", "--watch", "--count", "1", "--interval", "1ms"); c != ExitUnhealthy {
+		t.Fatalf("status --watch, unhealthy: %d", c)
+	}
+	if c := code("status", "r", "--watch", "--count", "1", "--interval", "1ms", "-o", "json"); c != ExitUnhealthy {
+		t.Fatalf("status --watch -o json, unhealthy: %d", c)
+	}
+	for _, args := range [][]string{{"--watch", "--interval", "0"}, {"--watch", "--interval", "-1s"}, {"--count", "2"}} {
+		if c := code(append([]string{"status", "r"}, args...)...); c != ExitUsage {
+			t.Fatalf("status %v: %d", args, c)
+		}
+	}
 	e.f.status.Resources[0].Health = "healthy"
 	e.f.status.Resources = append(e.f.status.Resources, api.ResourceStatus{Kind: "Service", Name: "web", Desired: "applied", Actual: api.ActualNotRouted})
 	if c := code("status", "r"); c != ExitUnhealthy {

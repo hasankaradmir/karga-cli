@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -28,6 +29,12 @@ func newStatusCmd(a *app) *cobra.Command {
 		Short: "Compare a release's desired state with the runtime",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			switch {
+			case watch && interval <= 0:
+				return usageError{fmt.Errorf("--interval must be positive, got %s", interval)}
+			case !watch && cmd.Flags().Changed("count"):
+				return usageError{errors.New("--count needs --watch")}
+			}
 			s := a.backend()
 			if !watch {
 				rep, err := a.printStatus(cmd.Context(), s, args[0])
@@ -37,6 +44,13 @@ func newStatusCmd(a *app) *cobra.Command {
 				return err
 			}
 			tty := isTerminal(a.stdout)
+			var last *api.StatusReport // what the watch ends on decides its exit code, as for status
+			end := func() error {
+				if last != nil && !last.Healthy() {
+					return &ExitCodeError{Code: ExitUnhealthy}
+				}
+				return nil
+			}
 			for n := 1; ; n++ {
 				if a.structured() { // one document per refresh
 					rep, err := s.Status(cmd.Context(), api.ReleaseRequest{Name: args[0]})
@@ -46,6 +60,7 @@ func newStatusCmd(a *app) *cobra.Command {
 					if err := a.writeStreamed(rep); err != nil {
 						return err
 					}
+					last = rep
 				} else {
 					if tty {
 						_, _ = io.WriteString(a.stdout, "\x1b[H\x1b[2J") // clear and redraw
@@ -53,16 +68,18 @@ func newStatusCmd(a *app) *cobra.Command {
 						_, _ = io.WriteString(a.stdout, "\n")
 					}
 					_, _ = fmt.Fprintf(a.stdout, "Every %s: karga status %s    %s\n\n", interval, args[0], time.Now().Format("15:04:05"))
-					if _, err := a.printStatus(cmd.Context(), s, args[0]); err != nil {
+					rep, err := a.printStatus(cmd.Context(), s, args[0])
+					if err != nil {
 						return err
 					}
+					last = rep
 				}
 				if count > 0 && n >= count {
-					return nil
+					return end()
 				}
 				select {
 				case <-cmd.Context().Done():
-					return nil
+					return end()
 				case <-time.After(interval):
 				}
 			}
@@ -70,7 +87,7 @@ func newStatusCmd(a *app) *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "refresh until interrupted")
 	cmd.Flags().DurationVar(&interval, "interval", 2*time.Second, "time between refreshes with --watch")
-	cmd.Flags().IntVar(&count, "count", 0, "with --watch, stop after this many refreshes (0: until interrupted)")
+	cmd.Flags().IntVar(&count, "count", 0, "with --watch, stop after this many refreshes (0: until interrupted); exit 6 if the last one is unhealthy")
 	return cmd
 }
 
