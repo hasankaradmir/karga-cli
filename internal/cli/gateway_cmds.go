@@ -97,10 +97,9 @@ func newGatewayCmd(a *app) *cobra.Command {
 				addrs = append(addrs, strings.TrimSpace(ip))
 			}
 			req := api.GatewayListenRequest{Addresses: addrs}
-			if err := a.confirm(cmd, req.Risk()); err != nil {
+			if err := a.confirm(cmd, req.Risk(), &req.Confirmed); err != nil {
 				return err
 			}
-			req.Confirmed = true
 			s := a.backend()
 			if err := s.SetGatewayListen(cmd.Context(), req); err != nil {
 				return err
@@ -268,10 +267,9 @@ func newListenerCmd(a *app) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := api.GatewayListenerRequest{Name: args[0]}
-			if err := a.confirm(cmd, req.Risk()); err != nil {
+			if err := a.confirm(cmd, req.Risk(), &req.Confirmed); err != nil {
 				return err
 			}
-			req.Confirmed = true
 			s := a.backend()
 			if err := s.RemoveGatewayListener(cmd.Context(), req); err != nil {
 				return err

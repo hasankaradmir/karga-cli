@@ -626,6 +626,15 @@ if [ -e "$D/fix" ]; then sed -i.bak 's/accessLog: bad/accessLog: false/' "$1"; f
 	if out := e.mustRun("gateway", "edit"); !strings.Contains(out, "gateway settings applied (revision 7)") {
 		t.Fatalf("edit:\n%s", out)
 	}
+	diffs := 0
+	for _, c := range e.f.calls {
+		if strings.HasPrefix(c, "diff ") {
+			diffs++
+		}
+	}
+	if diffs != 2 { // the document with problems, then the fixed one: each asked once
+		t.Fatalf("edit asked for %d diffs: %v", diffs, e.f.calls)
+	}
 	seen, _ := os.ReadFile(filepath.Join(dir, "seen"))
 	if !strings.HasPrefix(string(seen), "# problem: spec.accessLog: cannot unmarshal bad\n") {
 		t.Fatalf("the second run must show the problems on top:\n%s", seen)
