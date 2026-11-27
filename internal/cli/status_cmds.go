@@ -244,47 +244,79 @@ func newReconcileCmds(a *app) []*cobra.Command {
 					return err
 				}
 			}
-			var last int64
-			if len(ops) > 0 {
-				last = ops[len(ops)-1].ID
+			if !follow {
+				return nil
 			}
-			for follow {
-				select {
-				case <-cmd.Context().Done():
-					return nil
-				case <-time.After(2 * time.Second):
-				}
-				more, err := s.Events(cmd.Context(), api.EventsRequest{Name: name, AfterID: last, Limit: 100})
-				if err != nil {
-					return err
-				}
-				slices.Reverse(more)
-				if a.structured() {
-					for _, op := range more {
-						if err := a.writeStreamed(op); err != nil {
-							return err
-						}
-					}
-				} else {
-					for _, row := range eventRows(more) {
-						_, _ = fmt.Fprintln(a.stdout, strings.Join(row, "  "))
-					}
-				}
-				if len(more) > 0 {
-					last = more[len(more)-1].ID
-				}
-			}
-			return nil
+			return a.followEvents(cmd.Context(), s, name, ops)
 		},
 	}
 	events.Flags().IntVarP(&limit, "limit", "n", 20, "how many events")
-	events.Flags().BoolVarP(&follow, "follow", "f", false, "keep printing new events")
+	events.Flags().BoolVarP(&follow, "follow", "f", false, "keep printing new events, and each running one again when it ends")
 	reconcile.Flags().BoolVar(&emptyVolumes, "empty-volumes", false, "create the release's Volumes missing in Docker, empty")
 	return []*cobra.Command{reconcile, pause("pause", "Stop karga-server from repairing a release (for maintenance)", true),
 		pause("resume", "Let karga-server repair a release again", false), events}
 }
 
 // eventRows renders operations for karga events; running ones show as such.
+// followEvery is how often events -f asks for news.
+var followEvery = 2 * time.Second
+
+// followEvents prints, every followEvery, the operations that began after those shown (ops), and
+// once more each one shown running when it has ended. It asks from the oldest one still running,
+// so one request has both; MaxEvents bounds it.
+func (a *app) followEvents(ctx context.Context, s api.Backend, name string, ops []api.Operation) error {
+	running := map[int64]bool{}
+	var last int64
+	seen := func(ops []api.Operation) {
+		for _, op := range ops {
+			if op.Status == opRunning {
+				running[op.ID] = true
+			} else {
+				delete(running, op.ID)
+			}
+			last = max(last, op.ID)
+		}
+	}
+	seen(ops)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(followEvery):
+		}
+		after := last
+		for id := range running {
+			after = min(after, id-1)
+		}
+		more, err := s.Events(ctx, api.EventsRequest{Name: name, AfterID: after, Limit: api.MaxEvents})
+		if err != nil {
+			return err
+		}
+		slices.Reverse(more)
+		var news []api.Operation
+		for _, op := range more {
+			if op.ID > last || (running[op.ID] && op.Status != opRunning) {
+				news = append(news, op)
+			}
+		}
+		seen(news)
+		if a.structured() {
+			for _, op := range news {
+				if err := a.writeStreamed(op); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		for _, row := range eventRows(news) {
+			_, _ = fmt.Fprintln(a.stdout, strings.Join(row, "  "))
+		}
+	}
+}
+
+// opRunning is the status of an operation that has not ended.
+const opRunning = "running"
+
 func eventRows(ops []api.Operation) [][]string {
 	var rows [][]string
 	for _, op := range ops {

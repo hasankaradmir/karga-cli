@@ -53,6 +53,8 @@ type fake struct {
 	uninst   *api.UninstallRequest
 	pkg      *packages.Package // loaded from the archive the CLI sent
 	restored string
+	// eventsFn answers Events when set (events -f tests).
+	eventsFn func(api.EventsRequest) ([]api.Operation, error)
 	// backupReq and restoreReq are the last volume requests.
 	backupReq  api.VolumeBackupRequest
 	restoreReq api.VolumeRestoreRequest
@@ -205,6 +207,9 @@ func (f *fake) Resume(context.Context, api.ReleaseRequest) error {
 }
 
 func (f *fake) Events(_ context.Context, req api.EventsRequest) ([]api.Operation, error) {
+	if f.eventsFn != nil {
+		return f.eventsFn(req)
+	}
 	if req.AfterID > 0 {
 		return nil, f.err
 	}

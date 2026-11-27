@@ -80,6 +80,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `events -f` prints an operation it showed running once more when it ends, and every operation
+  that began meanwhile: it never showed the end, and skipped all but the newest 100.
 - `status --watch` exits 6 when the release is unhealthy at its last refresh (`--count` reached, or
   Ctrl-C), as `status` does; it always exited 0. `--interval` must be positive (0 asked
   karga-server in a tight loop) and `--count` needs `--watch` (it was ignored).
