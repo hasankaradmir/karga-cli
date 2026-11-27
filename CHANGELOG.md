@@ -80,6 +80,9 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `status --watch` exits 6 when the release is unhealthy at its last refresh (`--count` reached, or
+  Ctrl-C), as `status` does; it always exited 0. `--interval` must be positive (0 asked
+  karga-server in a tight loop) and `--count` needs `--watch` (it was ignored).
 - USAGE: which restore points karga removes with their volumes (karga-server now also removes the
   one of a `retention: delete` volume an upgrade or rollback deletes).
 - `volume restore --no-restore-point` says that the volume has no restore point now (karga-server
