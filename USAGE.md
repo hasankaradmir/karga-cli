@@ -946,7 +946,7 @@ Tables are colored on a terminal (`--color never`, `NO_COLOR=1` or `TERM=dumb` t
 
 Every command takes `-o text` (the default, for people), `-o json` or `-o yaml`. Streams
 (`status --watch`, `events -f`) write one JSON document per line, or YAML documents separated by
-`---`. `logs` always writes the containers' lines. The JSON and YAML shapes are the API's views:
+`---`. `logs` writes the containers' own lines: it refuses `-o json` and `-o yaml` (exit 2). The JSON and YAML shapes are the API's views:
 fields are only added within an API major version, never renamed or removed, so scripts may rely
 on them.
 
@@ -962,7 +962,9 @@ restore`, `volume undo-restore`, `gateway set listen` with an address other than
 `--delete-volumes`. `gateway listener add` does not ask: a new listener serves only what is exposed
 on it (it warns when the gateway listens on an address other than loopback, as the listener is then
 reachable from other hosts). In a script (stdin is not a terminal) they need
-`--yes` (`-y`); `--dry-run` shows what they would do. karga-server refuses these requests unless
+`--yes` (`-y`). `--dry-run` shows first what `uninstall`, `upgrade` and `rollback` would do, and
+`gateway diff` what a gateway document changes; the volume commands and the other gateway commands
+have no dry run. karga-server refuses these requests unless
 the client says the user agreed, so no client skips the question.
 
 | Exit code | Meaning |

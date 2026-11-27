@@ -89,8 +89,8 @@ karga rollback cache 1
 karga uninstall cache                    # asks first; keeps the volume; --delete-volumes removes it
 ```
 
-Every command accepts `-o text|json|yaml` (streams write one JSON document per line; `logs` always
-writes the containers' lines) and exits
+Every command accepts `-o text|json|yaml` (streams write one JSON document per line; `logs`
+writes the containers' own lines and refuses `-o json`/`yaml` with exit 2) and exits
 with a code scripts can test (`USAGE.md`, "Output and exit codes"); commands that delete data or
 expose services ask first, or need `--yes` in a script. `--debug` writes logs to stderr (`--log-format json` for structured
 logs). The state lives in karga-server's `KARGA_HOME` (`/var/lib/karga` for the service; the server's
