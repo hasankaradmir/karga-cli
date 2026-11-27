@@ -22,7 +22,7 @@ type valueOpts struct {
 
 func addValueFlags(cmd *cobra.Command, v *valueOpts) {
 	f := cmd.Flags()
-	f.StringArrayVarP(&v.files, "values", "f", nil, "values file (repeatable, later files win)")
+	f.StringArrayVarP(&v.files, "values", "f", nil, "values file (repeatable, later files win; -f is --follow in logs and events)")
 	f.Var(&setFlag{sets: &v.sets}, "set", "set values on the command line (a.b=c, repeatable; with --set-string, in the order given)")
 	f.Var(&setFlag{sets: &v.sets, string: true}, "set-string", "set string values on the command line (repeatable)")
 	f.BoolVar(&v.strict, "strict", false, "reject values not declared in values.schema.json")

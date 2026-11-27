@@ -259,7 +259,7 @@ func newEventsCmd(a *app) *cobra.Command {
 			return a.followEvents(cmd.Context(), s, name, ops)
 		},
 	}
-	events.Flags().IntVarP(&limit, "limit", "n", 20, "how many events")
+	events.Flags().IntVarP(&limit, "limit", "n", 20, "how many of the newest events (logs counts lines with --tail)")
 	events.Flags().BoolVarP(&follow, "follow", "f", false, "keep printing new events, and each running one again when it ends")
 	return events
 }

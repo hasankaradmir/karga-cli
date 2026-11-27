@@ -467,7 +467,7 @@ listener pg added (tcp on port 15432)
 
   | Option | Listeners | Effect |
   |--------|-----------|--------|
-  | `--timeout` | http, https | Longest a request may take; the gateway answers 504 after it. Default: none. |
+  | `--timeout` | http, https | Longest a request may take; the gateway answers 504 after it. Default: none. (Not the `--timeout` of `install` and `upgrade`, which waits for workloads to become ready.) |
   | `--idle-timeout` | all | Closes a request, a WebSocket or a tcp connection that sends nothing either way for that long. Default: 5m (http), 1h (tcp). |
   | `--max-body` | http, https | Largest request body, at most `16Mi`; 413 beyond it. The gateway holds each request's body in memory, and its memory is 128Mi: a few large uploads at once can exhaust it. Larger uploads are limited by the application. |
   | `--rate-limit` | http, https | Requests per second or minute (`100/s`, `600/m`) for the whole listener (an https listener counts each host on its own); 429 beyond it. |
