@@ -750,3 +750,50 @@ func TestListenerAddWarnsWhenReachable(t *testing.T) {
 		t.Fatalf("stderr %q", e.stderr)
 	}
 }
+
+// logs takes a release, or --gateway without one; -o does not apply to the containers' lines.
+func TestLogsArgs(t *testing.T) {
+	e := newCLIEnv(t)
+	e.f.logs = "line\n"
+	for _, args := range [][]string{{"logs", "--gateway"}, {"logs", "r"}, {"logs", "r", "web", "--tail", "5"}, {"logs", "r", "--proxy"}} {
+		if out, err := e.run(args...); err != nil || out != "line\n" {
+			t.Fatalf("%v: %q %v", args, out, err)
+		}
+	}
+	for _, args := range [][]string{{"logs"}, {"logs", "r", "--gateway"}, {"logs", "r", "-o", "json"}} {
+		if _, err := e.run(args...); ExitCode(err) != ExitUsage {
+			t.Fatalf("%v: exit %d (%v)", args, ExitCode(err), err)
+		}
+	}
+}
+
+// exec without a command opens a shell, which needs a terminal: without one it is a usage error.
+func TestExecShellNeedsATerminal(t *testing.T) {
+	e := newCLIEnv(t)
+	_, err := e.run("exec", "r", "web")
+	if ExitCode(err) != ExitUsage || !strings.Contains(err.Error(), "-t needs a terminal") {
+		t.Fatalf("exec without a command, no terminal: exit %d (%v)", ExitCode(err), err)
+	}
+}
+
+// ExitCode maps each kind of failure to the code USAGE documents.
+func TestExitCodeTable(t *testing.T) {
+	for err, want := range map[error]int{
+		nil:                                           0,
+		errors.New("boom"):                            ExitFailure,
+		usageError{errors.New("x")}:                   ExitUsage,
+		fmt.Errorf("x: %w", api.ErrInvalid):           ExitUsage,
+		fmt.Errorf("x: %w", api.ErrNotRunning):        ExitUnavailable,
+		fmt.Errorf("x: %w", api.ErrIncompatible):      ExitUnavailable,
+		fmt.Errorf("x: %w", api.ErrDisconnected):      ExitUnavailable, // a stream that went away
+		fmt.Errorf("x: %w", context.DeadlineExceeded): ExitUnavailable,
+		fmt.Errorf("x: %w", api.ErrNotFound):          ExitNotFound,
+		fmt.Errorf("x: %w", api.ErrConflict):          ExitConflict,
+		&ExitCodeError{Code: ExitUnhealthy}:           ExitUnhealthy,
+		fmt.Errorf("x: %w", api.ErrDetached):          ExitDetached,
+	} {
+		if got := ExitCode(err); got != want {
+			t.Errorf("%v: %d, want %d", err, got, want)
+		}
+	}
+}

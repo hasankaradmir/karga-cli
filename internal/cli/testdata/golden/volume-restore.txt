@@ -1,0 +1,2 @@
+volume data of r restored from in.tgz (db was down for 3s)
+Its previous files are kept: 'karga volume undo-restore r data' puts them back.

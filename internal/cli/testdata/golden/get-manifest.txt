@@ -1,0 +1,7 @@
+---
+apiVersion: karga.io/v1alpha1
+kind: Network
+metadata:
+  name: net
+spec:
+  driver: bridge
