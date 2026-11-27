@@ -80,6 +80,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- USAGE: which restore points karga removes with their volumes (karga-server now also removes the
+  one of a `retention: delete` volume an upgrade or rollback deletes).
 - `volume restore --no-restore-point` says that the volume has no restore point now (karga-server
   removes the older one, which would undo to the files of before an earlier restore).
 - USAGE §14: a release's operations stay after an uninstall (`karga events`); `karga status` of a
