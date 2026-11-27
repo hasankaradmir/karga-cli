@@ -669,3 +669,52 @@ func TestServerTextIsPrintable(t *testing.T) {
 		t.Fatalf("reconcile output: %q", out)
 	}
 }
+
+// events -f shows an operation it showed running once more when it ends, and every operation that
+// began meanwhile, however many: it asks from the oldest one still running, newest first.
+func TestEventsFollowShowsTheEnd(t *testing.T) {
+	e := newCLIEnv(t)
+	followEvery = time.Millisecond
+	t.Cleanup(func() { followEvery = 2 * time.Second })
+	op := func(id int64, status string) api.Operation {
+		return api.Operation{ID: id, Release: "r", Type: "upgrade", Status: status}
+	}
+	var asked []int64
+	turn := 0
+	e.f.eventsFn = func(req api.EventsRequest) ([]api.Operation, error) {
+		asked = append(asked, req.AfterID)
+		turn++
+		switch turn {
+		case 1: // the first page: 2 ended, 3 running
+			return []api.Operation{op(3, "running"), op(2, "succeeded")}, nil
+		case 2: // 3 ended, and 150 more began (newest first)
+			out := []api.Operation{}
+			for id := int64(153); id >= 4; id-- {
+				out = append(out, op(id, "succeeded"))
+			}
+			return append(out, op(3, "failed")), nil
+		}
+		return nil, errors.New("done")
+	}
+	out, _ := e.run("events", "r", "-f", "-o", "json")
+	if len(asked) < 2 || asked[1] != 2 { // from the oldest one still running (3)
+		t.Fatalf("asked after %v", asked)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var ends, news int
+	for _, l := range lines {
+		var o api.Operation
+		if err := json.Unmarshal([]byte(l), &o); err != nil {
+			t.Fatalf("line %q: %v", l, err)
+		}
+		switch {
+		case o.ID == 3 && o.Status == "failed":
+			ends++
+		case o.ID > 3:
+			news++
+		}
+	}
+	if ends != 1 || news != 150 {
+		t.Fatalf("end shown %d times, %d new operations:\n%s", ends, news, out)
+	}
+}
