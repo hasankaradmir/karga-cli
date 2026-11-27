@@ -159,7 +159,7 @@ func (a *app) printGatewayPlan(plan api.GatewayPlan) error {
 
 // optionFlags adds the listener option flags to cmd, written to o.
 func optionFlags(cmd *cobra.Command, o *api.ListenerOptions) {
-	cmd.Flags().StringVar(&o.Timeout, "timeout", "", "http, https: longest a request may take, e.g. 30s (504 after it; default none)")
+	cmd.Flags().StringVar(&o.Timeout, "timeout", "", "the listener's request timeout (http, https): longest a request may take, e.g. 30s (504 after it; default none); not the ready-wait --timeout of install and upgrade")
 	cmd.Flags().StringVar(&o.IdleTimeout, "idle-timeout", "", "close a request or tcp connection idle this long, e.g. 10m (default 5m for http, 1h for tcp)")
 	cmd.Flags().StringVar(&o.MaxBody, "max-body", "", "http, https: largest request body, e.g. 10Mi, at most 16Mi (413 beyond it; default none)")
 	cmd.Flags().StringVar(&o.RateLimit, "rate-limit", "", "http, https: requests per second or minute, e.g. 100/s (429 beyond it; default none)")

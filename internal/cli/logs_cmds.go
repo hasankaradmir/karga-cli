@@ -34,8 +34,8 @@ func newLogsCmd(a *app) *cobra.Command {
 			return s.Logs(cmd.Context(), req, a.stdout)
 		},
 	}
-	cmd.Flags().IntVar(&req.Tail, "tail", 100, "lines from the end of each log (-1 for all)")
-	cmd.Flags().BoolVarP(&req.Follow, "follow", "f", false, "keep streaming new lines")
+	cmd.Flags().IntVar(&req.Tail, "tail", 100, "lines from the end of each log (-1 for all; events counts with -n/--limit)")
+	cmd.Flags().BoolVarP(&req.Follow, "follow", "f", false, "keep streaming new lines (-f is --follow here, a values file in install and upgrade)")
 	cmd.Flags().BoolVar(&req.Proxy, "proxy", false, "the release proxy instead of workloads")
 	cmd.Flags().BoolVar(&req.Gateway, "gateway", false, "the host gateway")
 	return cmd
