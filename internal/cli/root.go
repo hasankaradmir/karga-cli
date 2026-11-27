@@ -52,50 +52,11 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	a := &app{stdout: stdout, stderr: stderr}
 
 	root := &cobra.Command{
-		Use:           "karga",
-		Short:         "Package manager for container workloads",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			switch a.output {
-			case outputTable:
-				a.output = outputText
-			case outputText, outputJSON, outputYAML:
-			default:
-				return usageError{fmt.Errorf("invalid --output %q: must be text, json or yaml", a.output)}
-			}
-			switch a.color {
-			case "auto", "always", "never":
-			default:
-				return usageError{fmt.Errorf("invalid --color %q: must be auto, always or never", a.color)}
-			}
-			level := slog.LevelWarn
-			if a.debug {
-				level = slog.LevelDebug
-			}
-			opts := &slog.HandlerOptions{Level: level}
-			switch a.logFormat {
-			case "text":
-				a.log = slog.New(slog.NewTextHandler(a.stderr, opts))
-			case "json":
-				a.log = slog.New(slog.NewJSONHandler(a.stderr, opts))
-			default:
-				return usageError{fmt.Errorf("invalid --log-format %q: must be text or json", a.logFormat)}
-			}
-			if a.socket == "" {
-				a.socket = api.DefaultSocket
-				if s := os.Getenv("KARGA_SOCKET"); s != "" {
-					a.socket = s
-				}
-			}
-			a.log.Debug("karga-server", "socket", a.socket)
-			if a.requestTimeout > 0 && !untimed(cmd) {
-				ctx, cancel := context.WithTimeout(cmd.Context(), a.requestTimeout)
-				cmd.SetContext(ctx)
-				a.cancel = cancel
-			}
-			return nil
-		},
+		Use:               "karga",
+		Short:             "Package manager for container workloads",
+		SilenceUsage:      true,
+		SilenceErrors:     true,
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error { return a.setup(cmd) },
 		PersistentPostRun: func(*cobra.Command, []string) {
 			if a.cancel != nil {
 				a.cancel()
@@ -105,14 +66,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	root.SetOut(stdout)
 	root.SetErr(stderr)
 
-	root.PersistentFlags().StringVarP(&a.output, "output", "o", outputText, "output format: text|json|yaml")
-	root.PersistentFlags().StringVar(&a.socket, "socket", "", "karga-server's socket (default $KARGA_SOCKET or "+api.DefaultSocket+")")
-	root.PersistentFlags().DurationVar(&a.requestTimeout, "request-timeout", 30*time.Second,
-		"give up waiting for karga-server after this long (0: never); deployments, logs, exec, backups and --watch/--follow are not bounded")
-	root.PersistentFlags().BoolVarP(&a.yes, "yes", "y", false, "do not ask before commands that delete data or expose services (needed in scripts)")
-	root.PersistentFlags().BoolVar(&a.debug, "debug", false, "enable debug logging")
-	root.PersistentFlags().StringVar(&a.logFormat, "log-format", "text", "log format on stderr: text|json")
-	root.PersistentFlags().StringVar(&a.color, "color", "auto", "color tables: auto (a terminal without NO_COLOR), always or never")
+	addGlobalFlags(a, root)
 
 	root.AddCommand(newVersionCmd(a), newCreateCmd(a), newTemplateCmd(a), newLintCmd(a), newShowCmd(a),
 		newInstallCmd(a), newUpgradeCmd(a), newRollbackCmd(a), newUninstallCmd(a),
@@ -130,6 +84,61 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	markUsageErrors(root)
 	markTimedMutations(root)
 	return root
+}
+
+// setup checks the global flags, sets up logging and the socket, and bounds the command by
+// --request-timeout unless it runs as long as its work takes.
+func (a *app) setup(cmd *cobra.Command) error {
+	switch a.output {
+	case outputTable:
+		a.output = outputText
+	case outputText, outputJSON, outputYAML:
+	default:
+		return usageError{fmt.Errorf("invalid --output %q: must be text, json or yaml", a.output)}
+	}
+	switch a.color {
+	case "auto", "always", "never":
+	default:
+		return usageError{fmt.Errorf("invalid --color %q: must be auto, always or never", a.color)}
+	}
+	level := slog.LevelWarn
+	if a.debug {
+		level = slog.LevelDebug
+	}
+	opts := &slog.HandlerOptions{Level: level}
+	switch a.logFormat {
+	case "text":
+		a.log = slog.New(slog.NewTextHandler(a.stderr, opts))
+	case "json":
+		a.log = slog.New(slog.NewJSONHandler(a.stderr, opts))
+	default:
+		return usageError{fmt.Errorf("invalid --log-format %q: must be text or json", a.logFormat)}
+	}
+	if a.socket == "" {
+		a.socket = api.DefaultSocket
+		if s := os.Getenv("KARGA_SOCKET"); s != "" {
+			a.socket = s
+		}
+	}
+	a.log.Debug("karga-server", "socket", a.socket)
+	if a.requestTimeout > 0 && !untimed(cmd) {
+		ctx, cancel := context.WithTimeout(cmd.Context(), a.requestTimeout)
+		cmd.SetContext(ctx)
+		a.cancel = cancel
+	}
+	return nil
+}
+
+// addGlobalFlags adds the flags every command takes.
+func addGlobalFlags(a *app, root *cobra.Command) {
+	root.PersistentFlags().StringVarP(&a.output, "output", "o", outputText, "output format: text|json|yaml")
+	root.PersistentFlags().StringVar(&a.socket, "socket", "", "karga-server's socket (default $KARGA_SOCKET or "+api.DefaultSocket+")")
+	root.PersistentFlags().DurationVar(&a.requestTimeout, "request-timeout", 30*time.Second,
+		"give up waiting for karga-server after this long (0: never); deployments, logs, exec, backups and --watch/--follow are not bounded")
+	root.PersistentFlags().BoolVarP(&a.yes, "yes", "y", false, "do not ask before commands that delete data or expose services (needed in scripts)")
+	root.PersistentFlags().BoolVar(&a.debug, "debug", false, "enable debug logging")
+	root.PersistentFlags().StringVar(&a.logFormat, "log-format", "text", "log format on stderr: text|json")
+	root.PersistentFlags().StringVar(&a.color, "color", "auto", "color tables: auto (a terminal without NO_COLOR), always or never")
 }
 
 // timedMutations change something and are bounded by --request-timeout, so a timeout can come after
