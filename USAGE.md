@@ -843,8 +843,9 @@ volume postgres-data of db is back as it was before its last restore (postgres w
   point in `KARGA_HOME/restore-points/<release>/<volume>.tar.gz` (one per volume, each restore
   replaces it); `karga volume undo-restore` puts them back the same way. Without room for it under
   `KARGA_HOME` the restore changes nothing and says so; `--no-restore-point` restores without one
-  (the current files are then lost). `uninstall --delete-volumes` removes restore points with the
-  volumes.
+  and removes the volume's older one, which would undo to the files of before an earlier restore
+  (the current files are then lost, and undo-restore has nothing to put back).
+  `uninstall --delete-volumes` removes restore points with the volumes.
 - **Interruptions.** A restore asks first (`--yes` in scripts), receives the whole backup and keeps it
   under `KARGA_HOME` until it is done: it goes to the end if the CLI goes away, and if karga-server
   stops in the middle it finishes the restore when it starts again (without taking the restore point

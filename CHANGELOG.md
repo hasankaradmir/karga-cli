@@ -80,6 +80,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- `volume restore --no-restore-point` says that the volume has no restore point now (karga-server
+  removes the older one, which would undo to the files of before an earlier restore).
 - USAGE §14: a release's operations stay after an uninstall (`karga events`); `karga status` of a
   release installed again shows its own repairs only (karga-server).
 - `lint`, `template` and the server's renders stop a template that would exhaust memory, and their

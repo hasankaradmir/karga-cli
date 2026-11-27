@@ -234,7 +234,7 @@ func TestStreams(t *testing.T) {
 		t.Fatalf("restore: %s %q", out, e.f.restored)
 	}
 	if out := e.mustRun("volume", "restore", "--yes", "--merge", "--no-restore-point", "r", "data", file); strings.Contains(out, "undo-restore") ||
-		!e.f.restoreReq.Merge || !e.f.restoreReq.NoRestorePoint {
+		!strings.Contains(out, "It has no restore point now") || !e.f.restoreReq.Merge || !e.f.restoreReq.NoRestorePoint {
 		t.Fatalf("restore --merge --no-restore-point: %s %+v", out, e.f.restoreReq)
 	}
 	if out := e.mustRun("volume", "undo-restore", "--yes", "r", "data"); !strings.Contains(out, "back as it was before its last restore (db was down for 2s)") {
