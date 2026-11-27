@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -127,7 +128,34 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		}
 	}
 	markUsageErrors(root)
+	markTimedMutations(root)
 	return root
+}
+
+// timedMutations change something and are bounded by --request-timeout, so a timeout can come after
+// karga-server applied the change; each says how to see whether it did.
+var timedMutations = map[string]string{
+	"karga pause": "karga status <release>", "karga resume": "karga status <release>",
+	"karga gateway set access-log": "karga gateway get", "karga gateway listener add": "karga gateway listener list",
+	"karga gateway listener set": "karga gateway listener list",
+}
+
+// markTimedMutations makes a timeout of a timed mutation exit 7 (it may have been applied), not 3.
+func markTimedMutations(root *cobra.Command) {
+	for path, check := range timedMutations {
+		c, _, err := root.Find(strings.Fields(path)[1:])
+		if err != nil || c.CommandPath() != path {
+			panic("timed mutation that does not exist: " + path)
+		}
+		run := c.RunE
+		c.RunE = func(cmd *cobra.Command, args []string) error {
+			err := run(cmd, args)
+			if errors.Is(err, context.DeadlineExceeded) {
+				return mayHaveApplied{fmt.Errorf("%w: the request timed out and karga-server may have applied it; check with '%s'", api.ErrDetached, check)}
+			}
+			return err
+		}
+	}
 }
 
 // untimedCommands run as long as their work takes: deployments wait for workloads, others stream,
