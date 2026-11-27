@@ -16,6 +16,11 @@ import (
 
 func newVolumeCmd(a *app) *cobra.Command {
 	cmd := &cobra.Command{Use: "volume", Short: "Back up and restore a release's volumes"}
+	cmd.AddCommand(newVolumeBackupCmd(a), newVolumeRestoreCmd(a), newVolumeUndoRestoreCmd(a))
+	return cmd
+}
+
+func newVolumeBackupCmd(a *app) *cobra.Command {
 	var backup api.VolumeBackupRequest
 	b := &cobra.Command{
 		Use:   "backup <release> <volume> <file.tar.gz>",
@@ -47,6 +52,10 @@ func newVolumeCmd(a *app) *cobra.Command {
 		},
 	}
 	b.Flags().BoolVar(&backup.Live, "live", false, "copy while the workloads run (not consistent for a database)")
+	return b
+}
+
+func newVolumeRestoreCmd(a *app) *cobra.Command {
 	var restore api.VolumeRestoreRequest
 	r := &cobra.Command{
 		Use:   "restore <release> <volume> <file.tar.gz>",
@@ -84,6 +93,10 @@ func newVolumeCmd(a *app) *cobra.Command {
 	r.Flags().BoolVar(&restore.Force, "from-other-volume", false, "restore a backup taken from another volume or release")
 	r.Flags().BoolVar(&restore.Merge, "merge", false, "write the backup over the volume's files, keeping those it does not have")
 	r.Flags().BoolVar(&restore.NoRestorePoint, "no-restore-point", false, "keep no restore point and remove the volume's older one (the current files cannot be brought back)")
+	return r
+}
+
+func newVolumeUndoRestoreCmd(a *app) *cobra.Command {
 	var undo api.VolumeUndoRestoreRequest
 	u := &cobra.Command{
 		Use:   "undo-restore <release> <volume>",
@@ -106,8 +119,7 @@ func newVolumeCmd(a *app) *cobra.Command {
 				"volume %s of %s is back as it was before its last restore%s\n", undo.Volume, undo.Release, downFor(res))
 		},
 	}
-	cmd.AddCommand(b, r, u)
-	return cmd
+	return u
 }
 
 // volumeProgress shows a volume operation's progress on stderr, except for JSON or YAML output.

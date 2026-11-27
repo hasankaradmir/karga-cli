@@ -147,6 +147,11 @@ func (a *app) printStatus(ctx context.Context, s api.Backend, name string) (*api
 }
 
 func newReconcileCmds(a *app) []*cobra.Command {
+	return []*cobra.Command{newReconcileCmd(a), newPauseCmd(a, "pause", "Stop karga-server from repairing a release (for maintenance)", true),
+		newPauseCmd(a, "resume", "Let karga-server repair a release again", false), newEventsCmd(a)}
+}
+
+func newReconcileCmd(a *app) *cobra.Command {
 	var emptyVolumes bool
 	reconcile := &cobra.Command{
 		Use:   "reconcile <release>",
@@ -191,25 +196,32 @@ func newReconcileCmds(a *app) []*cobra.Command {
 			return err
 		},
 	}
-	pause := func(use, short string, paused bool) *cobra.Command {
-		return &cobra.Command{
-			Use:   use + " <release>",
-			Short: short,
-			Args:  cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				s := a.backend()
-				set := s.Resume
-				if paused {
-					set = s.Pause
-				}
-				if err := set(cmd.Context(), api.ReleaseRequest{Name: args[0]}); err != nil {
-					return err
-				}
-				return a.report(map[string]any{"release": args[0], "paused": paused},
-					"Release %q %sd: karga-server %s repair it.\n", args[0], use, map[bool]string{true: "does not", false: "will"}[paused])
-			},
-		}
+	reconcile.Flags().BoolVar(&emptyVolumes, "empty-volumes", false, "create the release's Volumes missing in Docker, empty")
+	return reconcile
+}
+
+// newPauseCmd makes pause (paused) or resume.
+func newPauseCmd(a *app, use, short string, paused bool) *cobra.Command {
+	return &cobra.Command{
+		Use:   use + " <release>",
+		Short: short,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			s := a.backend()
+			set := s.Resume
+			if paused {
+				set = s.Pause
+			}
+			if err := set(cmd.Context(), api.ReleaseRequest{Name: args[0]}); err != nil {
+				return err
+			}
+			return a.report(map[string]any{"release": args[0], "paused": paused},
+				"Release %q %sd: karga-server %s repair it.\n", args[0], use, map[bool]string{true: "does not", false: "will"}[paused])
+		},
 	}
+}
+
+func newEventsCmd(a *app) *cobra.Command {
 	var limit int
 	var follow bool
 	events := &cobra.Command{
@@ -249,9 +261,7 @@ func newReconcileCmds(a *app) []*cobra.Command {
 	}
 	events.Flags().IntVarP(&limit, "limit", "n", 20, "how many events")
 	events.Flags().BoolVarP(&follow, "follow", "f", false, "keep printing new events, and each running one again when it ends")
-	reconcile.Flags().BoolVar(&emptyVolumes, "empty-volumes", false, "create the release's Volumes missing in Docker, empty")
-	return []*cobra.Command{reconcile, pause("pause", "Stop karga-server from repairing a release (for maintenance)", true),
-		pause("resume", "Let karga-server repair a release again", false), events}
+	return events
 }
 
 // eventRows renders operations for karga events; running ones show as such.

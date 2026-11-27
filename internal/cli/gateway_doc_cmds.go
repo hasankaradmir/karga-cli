@@ -17,6 +17,11 @@ import (
 // addDocumentCmds adds the commands that read and apply the gateway settings as a document (kind
 // Gateway), kept by the user wherever they like; karga keeps the revisions applied.
 func addDocumentCmds(a *app, cmd *cobra.Command) {
+	cmd.AddCommand(newGatewayGetCmd(a), newGatewayDiffCmd(a), newGatewayApplyCmd(a), newGatewayEditCmd(a),
+		newGatewayHistoryCmd(a), newGatewayRollbackCmd(a))
+}
+
+func newGatewayGetCmd(a *app) *cobra.Command {
 	var rev int
 	get := &cobra.Command{
 		Use:   "get [--revision N]",
@@ -39,7 +44,10 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 		},
 	}
 	get.Flags().IntVar(&rev, "revision", 0, "revision to print (default: the one in force)")
+	return get
+}
 
+func newGatewayDiffCmd(a *app) *cobra.Command {
 	var file string
 	diff := &cobra.Command{
 		Use:   "diff -f <file|->",
@@ -59,7 +67,11 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 	}
 	diff.Flags().StringVarP(&file, "file", "f", "", "gateway document (- for stdin)")
 	_ = diff.MarkFlagRequired("file")
+	return diff
+}
 
+func newGatewayApplyCmd(a *app) *cobra.Command {
+	var file string
 	apply := &cobra.Command{
 		Use:   "apply -f <file|->",
 		Short: "Apply a gateway document as a new revision; if the gateway does not route with it, the revision in force stays",
@@ -74,8 +86,11 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 	}
 	apply.Flags().StringVarP(&file, "file", "f", "", "gateway document (- for stdin)")
 	_ = apply.MarkFlagRequired("file")
+	return apply
+}
 
-	cmd.AddCommand(get, diff, apply, newGatewayEditCmd(a), &cobra.Command{
+func newGatewayHistoryCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "history",
 		Short: "List the gateway settings revisions kept (the last 10)",
 		Args:  cobra.NoArgs,
@@ -92,7 +107,11 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 				return []string{strconv.Itoa(r.Revision) + mark, when(r.Time), r.Actor, r.Source}
 			})
 		},
-	}, &cobra.Command{
+	}
+}
+
+func newGatewayRollbackCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "rollback [revision]",
 		Short: "Apply an earlier revision of the gateway settings again (default: the one before the one in force)",
 		Args:  cobra.MaximumNArgs(1),
@@ -120,7 +139,7 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 			}
 			return a.applyDocument(cmd, doc.Content, "rollback "+strconv.Itoa(n), nil)
 		},
-	})
+	}
 }
 
 // applyDocument shows what a gateway document changes (planned: the plan of content, if the caller

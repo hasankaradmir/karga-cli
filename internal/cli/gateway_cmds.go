@@ -21,7 +21,15 @@ func newGatewayCmd(a *app) *cobra.Command {
 			"(set listen, default 127.0.0.1) and on which ports (listeners); packages only attach their\n" +
 			"Services to listeners by name and can open nothing themselves.",
 	}
-	cmd.AddCommand(&cobra.Command{
+	set := &cobra.Command{Use: "set", Short: "Change a gateway setting"}
+	set.AddCommand(newGatewayAccessLogCmd(a), newGatewayListenCmd(a))
+	cmd.AddCommand(newGatewayStatusCmd(a), set, newListenerCmd(a))
+	addDocumentCmds(a, cmd)
+	return cmd
+}
+
+func newGatewayStatusCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "status",
 		Short: "Show the gateway's health and the listeners and routes it serves",
 		Args:  cobra.NoArgs,
@@ -72,9 +80,11 @@ func newGatewayCmd(a *app) *cobra.Command {
 			}
 			return a.table("LISTENER\tROUTE\tRELEASE\tSERVICE\tUPSTREAM", rows)
 		},
-	})
-	set := &cobra.Command{Use: "set", Short: "Change a gateway setting"}
-	set.AddCommand(&cobra.Command{
+	}
+}
+
+func newGatewayAccessLogCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:       "access-log on|off",
 		Short:     "Log every request and connection the gateway handles (off by default)",
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
@@ -86,8 +96,11 @@ func newGatewayCmd(a *app) *cobra.Command {
 			}
 			return a.report(map[string]any{"accessLog": args[0] == "on"}, "gateway access log %s\n", args[0])
 		},
-	})
-	set.AddCommand(&cobra.Command{
+	}
+}
+
+func newGatewayListenCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "listen <ip>[,<ip>...]",
 		Short: "Set the host addresses every listener binds (default 127.0.0.1; 0.0.0.0 is every interface)",
 		Args:  cobra.ExactArgs(1),
@@ -106,10 +119,7 @@ func newGatewayCmd(a *app) *cobra.Command {
 			}
 			return a.report(map[string]any{"listen": addrs}, "gateway listens on %s\n", strings.Join(addrs, ", "))
 		},
-	})
-	cmd.AddCommand(set, newListenerCmd(a))
-	addDocumentCmds(a, cmd)
-	return cmd
+	}
 }
 
 // printGatewayPlan shows what applying a gateway document changes; problems make the command fail
@@ -186,7 +196,12 @@ func optionsText(o api.ListenerOptions) string {
 
 func newListenerCmd(a *app) *cobra.Command {
 	cmd := &cobra.Command{Use: "listener", Short: "Define the ports services can be exposed on"}
-	cmd.AddCommand(&cobra.Command{
+	cmd.AddCommand(newListenerListCmd(a), newListenerAddCmd(a), newListenerSetCmd(a), newListenerRemoveCmd(a))
+	return cmd
+}
+
+func newListenerListCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "list",
 		Short: "List the listeners and the services using them",
 		Args:  cobra.NoArgs,
@@ -201,7 +216,10 @@ func newListenerCmd(a *app) *cobra.Command {
 				return []string{l.Name, strconv.Itoa(l.Port), l.Protocol, optionsText(l.ListenerOptions), strings.Join(users[l.Name], ", ")}
 			})
 		},
-	})
+	}
+}
+
+func newListenerAddCmd(a *app) *cobra.Command {
 	var l api.Listener
 	add := &cobra.Command{
 		Use:   "add <name> --port <port> --protocol tcp|http|https",
@@ -228,6 +246,10 @@ func newListenerCmd(a *app) *cobra.Command {
 	_ = add.MarkFlagRequired("port")
 	_ = add.MarkFlagRequired("protocol")
 	optionFlags(add, &l.ListenerOptions)
+	return add
+}
+
+func newListenerSetCmd(a *app) *cobra.Command {
 	var opts api.ListenerOptions
 	set := &cobra.Command{
 		Use:   "set <name> [--timeout d] [--idle-timeout d] [--max-body size] [--rate-limit n/s] [--proxy-protocol v1|v2]",
@@ -261,7 +283,11 @@ func newListenerCmd(a *app) *cobra.Command {
 		},
 	}
 	optionFlags(set, &opts)
-	cmd.AddCommand(add, set, &cobra.Command{
+	return set
+}
+
+func newListenerRemoveCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "remove <name>",
 		Short: "Remove a listener no service uses",
 		Args:  cobra.ExactArgs(1),
@@ -276,8 +302,7 @@ func newListenerCmd(a *app) *cobra.Command {
 			}
 			return a.report(map[string]any{"listener": args[0], "removed": true}, "listener %s removed\n", args[0])
 		},
-	})
-	return cmd
+	}
 }
 
 // reachable are the addresses of listen, with port, that other hosts can reach: every one but a
