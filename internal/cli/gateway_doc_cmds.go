@@ -84,18 +84,13 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 			if err != nil {
 				return err
 			}
-			if a.structured() {
-				return a.write(revs)
-			}
-			var rows [][]string
-			for i, r := range revs {
+			return showTable(a, revs, revs, "REVISION\tTIME\tACTOR\tSOURCE", func(i int, r api.GatewayRevision) []string {
 				mark := ""
 				if i == len(revs)-1 {
 					mark = " (in force)"
 				}
-				rows = append(rows, []string{strconv.Itoa(r.Revision) + mark, when(r.Time), r.Actor, r.Source})
-			}
-			return a.table("REVISION\tTIME\tACTOR\tSOURCE", rows)
+				return []string{strconv.Itoa(r.Revision) + mark, when(r.Time), r.Actor, r.Source}
+			})
 		},
 	}, &cobra.Command{
 		Use:   "rollback [revision]",
