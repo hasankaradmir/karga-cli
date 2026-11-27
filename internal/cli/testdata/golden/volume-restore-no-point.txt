@@ -1,0 +1,2 @@
+volume data of r restored from in.tgz (db was down for 3s)
+It has no restore point now: its previous files cannot be brought back.

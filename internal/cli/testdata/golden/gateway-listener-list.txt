@@ -1,0 +1,3 @@
+NAME  PORT   PROTOCOL  OPTIONS  SERVICES
+http  80     http      -        shop/web, blog/web
+pg    15432  tcp       -        
