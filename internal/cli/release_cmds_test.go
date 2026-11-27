@@ -735,3 +735,18 @@ func TestTimedMutationTimeout(t *testing.T) {
 		t.Fatalf("list: exit %d", ExitCode(err))
 	}
 }
+
+// listener add asks nothing but warns when the gateway listens beyond loopback.
+func TestListenerAddWarnsWhenReachable(t *testing.T) {
+	e := newCLIEnv(t)
+	e.f.settings = api.Settings{Listen: []string{"127.0.0.1", "0.0.0.0", "::1"}}
+	e.mustRun("gateway", "listener", "add", "pg", "--port", "15432", "--protocol", "tcp")
+	if want := "warning: listener pg is reachable from other hosts on 0.0.0.0:15432\n"; e.stderr != want {
+		t.Fatalf("stderr %q", e.stderr)
+	}
+	e.f.settings = api.Settings{} // 127.0.0.1
+	e.mustRun("gateway", "listener", "add", "pg2", "--port", "15433", "--protocol", "tcp")
+	if strings.Contains(e.stderr, "warning") {
+		t.Fatalf("stderr %q", e.stderr)
+	}
+}
