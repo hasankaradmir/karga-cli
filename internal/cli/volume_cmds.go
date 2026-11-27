@@ -76,13 +76,15 @@ func newVolumeCmd(a *app) *cobra.Command {
 			msg := fmt.Sprintf("volume %s of %s restored from %s%s\n", restore.Volume, restore.Release, args[2], downFor(res))
 			if res != nil && res.RestorePoint != "" {
 				msg += fmt.Sprintf("Its previous files are kept: 'karga volume undo-restore %s %s' puts them back.\n", restore.Release, restore.Volume)
+			} else if restore.NoRestorePoint {
+				msg += "It has no restore point now: its previous files cannot be brought back.\n"
 			}
 			return a.report(volumeReport(restore.Release, restore.Volume, args[2], res), "%s", msg)
 		},
 	}
 	r.Flags().BoolVar(&restore.Force, "from-other-volume", false, "restore a backup taken from another volume or release")
 	r.Flags().BoolVar(&restore.Merge, "merge", false, "write the backup over the volume's files, keeping those it does not have")
-	r.Flags().BoolVar(&restore.NoRestorePoint, "no-restore-point", false, "keep no restore point (the current files cannot be brought back)")
+	r.Flags().BoolVar(&restore.NoRestorePoint, "no-restore-point", false, "keep no restore point and remove the volume's older one (the current files cannot be brought back)")
 	var undo api.VolumeUndoRestoreRequest
 	u := &cobra.Command{
 		Use:   "undo-restore <release> <volume>",
