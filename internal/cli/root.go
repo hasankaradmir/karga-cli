@@ -17,8 +17,8 @@ import (
 )
 
 // Output formats: text for people (the default; "table" is an older name for it), json and yaml for
-// programs. Every command supports all three; streams (--watch, --follow) write one JSON document
-// per line, or YAML documents separated by "---".
+// programs. Every command supports all three but logs, which writes the containers' own lines;
+// streams (--watch, --follow) write one JSON document per line, or YAML documents separated by "---".
 const (
 	outputText  = "text"
 	outputTable = "table"
@@ -135,7 +135,7 @@ func addGlobalFlags(a *app, root *cobra.Command) {
 	root.PersistentFlags().StringVar(&a.socket, "socket", "", "karga-server's socket (default $KARGA_SOCKET or "+api.DefaultSocket+")")
 	root.PersistentFlags().DurationVar(&a.requestTimeout, "request-timeout", 30*time.Second,
 		"give up waiting for karga-server after this long (0: never); deployments, logs, exec, backups and --watch/--follow are not bounded")
-	root.PersistentFlags().BoolVarP(&a.yes, "yes", "y", false, "do not ask before commands that delete data or expose services (needed in scripts)")
+	root.PersistentFlags().BoolVarP(&a.yes, "yes", "y", false, "do not ask before commands that delete data or expose services (needed in scripts; gateway listener add never asks)")
 	root.PersistentFlags().BoolVar(&a.debug, "debug", false, "enable debug logging")
 	root.PersistentFlags().StringVar(&a.logFormat, "log-format", "text", "log format on stderr: text|json")
 	root.PersistentFlags().StringVar(&a.color, "color", "auto", "color tables: auto (a terminal without NO_COLOR), always or never")

@@ -89,6 +89,9 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- USAGE and README: only `uninstall`, `upgrade` and `rollback` have `--dry-run` (and `gateway diff`
+  previews a document); `logs` refuses `-o json`/`yaml` (exit 2); the `--yes` help names `gateway
+  listener add`, which never asks.
 - `events -f` prints an operation it showed running once more when it ends, and every operation
   that began meanwhile: it never showed the end, and skipped all but the newest 100.
 - `status --watch` exits 6 when the release is unhealthy at its last refresh (`--count` reached, or
