@@ -51,14 +51,14 @@ func newStatusCmd(a *app) *cobra.Command {
 				}
 				return nil
 			}
-			for n := 1; ; n++ {
+			err := poll(cmd.Context(), interval, func(n int) (bool, error) {
 				if a.structured() { // one document per refresh
 					rep, err := s.Status(cmd.Context(), api.ReleaseRequest{Name: args[0]})
 					if err != nil {
-						return err
+						return false, err
 					}
 					if err := a.writeStreamed(rep); err != nil {
-						return err
+						return false, err
 					}
 					last = rep
 				} else {
@@ -70,19 +70,16 @@ func newStatusCmd(a *app) *cobra.Command {
 					_, _ = fmt.Fprintf(a.stdout, "Every %s: karga status %s    %s\n\n", interval, args[0], time.Now().Format("15:04:05"))
 					rep, err := a.printStatus(cmd.Context(), s, args[0])
 					if err != nil {
-						return err
+						return false, err
 					}
 					last = rep
 				}
-				if count > 0 && n >= count {
-					return end()
-				}
-				select {
-				case <-cmd.Context().Done():
-					return end()
-				case <-time.After(interval):
-				}
+				return count > 0 && n >= count, nil
+			})
+			if err != nil {
+				return err
 			}
+			return end()
 		},
 	}
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "refresh until interrupted")
@@ -278,19 +275,14 @@ func (a *app) followEvents(ctx context.Context, s api.Backend, name string, ops 
 		}
 	}
 	seen(ops)
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(followEvery):
-		}
+	return poll(ctx, followEvery, func(int) (bool, error) {
 		after := last
 		for id := range running {
 			after = min(after, id-1)
 		}
 		more, err := s.Events(ctx, api.EventsRequest{Name: name, AfterID: after, Limit: api.MaxEvents})
 		if err != nil {
-			return err
+			return false, err
 		}
 		slices.Reverse(more)
 		var news []api.Operation
@@ -303,13 +295,29 @@ func (a *app) followEvents(ctx context.Context, s api.Backend, name string, ops 
 		if a.structured() {
 			for _, op := range news {
 				if err := a.writeStreamed(op); err != nil {
-					return err
+					return false, err
 				}
 			}
-			continue
+			return false, nil
 		}
 		for _, row := range eventRows(news) {
 			_, _ = fmt.Fprintln(a.stdout, strings.Join(row, "  "))
+		}
+		return false, nil
+	})
+}
+
+// poll calls fn (with its turn, from 1), then waits every, until fn is done or fails or ctx ends
+// (which is not a failure: Ctrl-C ends a watch).
+func poll(ctx context.Context, every time.Duration, fn func(n int) (done bool, err error)) error {
+	for n := 1; ; n++ {
+		if done, err := fn(n); done || err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(every):
 		}
 	}
 }

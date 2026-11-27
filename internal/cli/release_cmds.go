@@ -164,10 +164,9 @@ func newUpgradeCmd(a *app) *cobra.Command {
 				CommonOptions: opts, Name: args[0], Package: args[1], Values: values,
 				ReuseValues: reuse, Install: install, Strategy: strategy,
 			}
-			if err := a.confirm(cmd, req.Risk()); err != nil {
+			if err := a.confirm(cmd, req.Risk(), &req.Confirmed); err != nil {
 				return err
 			}
-			req.Confirmed = true
 			res, err := s.Upgrade(cmd.Context(), req, progress)
 			done()
 			if err != nil {
@@ -203,10 +202,9 @@ func newRollbackCmd(a *app) *cobra.Command {
 			s := a.backend()
 			opts, progress, done := a.optionsFor(cmd, common)
 			req := api.RollbackRequest{CommonOptions: opts, Name: args[0], Revision: rev, Strategy: strategy}
-			if err := a.confirm(cmd, req.Risk()); err != nil {
+			if err := a.confirm(cmd, req.Risk(), &req.Confirmed); err != nil {
 				return err
 			}
-			req.Confirmed = true
 			res, err := s.Rollback(cmd.Context(), req, progress)
 			done()
 			if err != nil {
@@ -229,10 +227,9 @@ func newUninstallCmd(a *app) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req.Name = args[0]
-			if err := a.confirm(cmd, req.Risk()); err != nil {
+			if err := a.confirm(cmd, req.Risk(), &req.Confirmed); err != nil {
 				return err
 			}
-			req.Confirmed = true
 			s := a.backend()
 			res, err := s.Uninstall(cmd.Context(), req)
 			if err != nil {

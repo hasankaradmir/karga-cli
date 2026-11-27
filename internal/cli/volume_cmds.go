@@ -58,10 +58,9 @@ func newVolumeCmd(a *app) *cobra.Command {
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			restore.Release, restore.Volume, restore.Name = args[0], args[1], filepath.Base(args[2])
-			if err := a.confirm(cmd, restore.Risk()); err != nil {
+			if err := a.confirm(cmd, restore.Risk(), &restore.Confirmed); err != nil {
 				return err
 			}
-			restore.Confirmed = true
 			f, err := os.Open(args[2])
 			if err != nil {
 				return err
@@ -94,10 +93,9 @@ func newVolumeCmd(a *app) *cobra.Command {
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			undo.Release, undo.Volume = args[0], args[1]
-			if err := a.confirm(cmd, undo.Risk()); err != nil {
+			if err := a.confirm(cmd, undo.Risk(), &undo.Confirmed); err != nil {
 				return err
 			}
-			undo.Confirmed = true
 			progress, done := a.volumeProgress()
 			res, err := a.backend().UndoRestoreVolume(cmd.Context(), undo, progress)
 			done()
