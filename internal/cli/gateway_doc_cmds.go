@@ -17,6 +17,11 @@ import (
 // addDocumentCmds adds the commands that read and apply the gateway settings as a document (kind
 // Gateway), kept by the user wherever they like; karga keeps the revisions applied.
 func addDocumentCmds(a *app, cmd *cobra.Command) {
+	cmd.AddCommand(newGatewayGetCmd(a), newGatewayDiffCmd(a), newGatewayApplyCmd(a), newGatewayEditCmd(a),
+		newGatewayHistoryCmd(a), newGatewayRollbackCmd(a))
+}
+
+func newGatewayGetCmd(a *app) *cobra.Command {
 	var rev int
 	get := &cobra.Command{
 		Use:   "get [--revision N]",
@@ -39,7 +44,10 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 		},
 	}
 	get.Flags().IntVar(&rev, "revision", 0, "revision to print (default: the one in force)")
+	return get
+}
 
+func newGatewayDiffCmd(a *app) *cobra.Command {
 	var file string
 	diff := &cobra.Command{
 		Use:   "diff -f <file|->",
@@ -59,7 +67,11 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 	}
 	diff.Flags().StringVarP(&file, "file", "f", "", "gateway document (- for stdin)")
 	_ = diff.MarkFlagRequired("file")
+	return diff
+}
 
+func newGatewayApplyCmd(a *app) *cobra.Command {
+	var file string
 	apply := &cobra.Command{
 		Use:   "apply -f <file|->",
 		Short: "Apply a gateway document as a new revision; if the gateway does not route with it, the revision in force stays",
@@ -69,13 +81,16 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 			if err != nil {
 				return err
 			}
-			return a.applyDocument(cmd, content, "apply")
+			return a.applyDocument(cmd, content, "apply", nil)
 		},
 	}
 	apply.Flags().StringVarP(&file, "file", "f", "", "gateway document (- for stdin)")
 	_ = apply.MarkFlagRequired("file")
+	return apply
+}
 
-	cmd.AddCommand(get, diff, apply, newGatewayEditCmd(a), &cobra.Command{
+func newGatewayHistoryCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "history",
 		Short: "List the gateway settings revisions kept (the last 10)",
 		Args:  cobra.NoArgs,
@@ -92,7 +107,11 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 				return []string{strconv.Itoa(r.Revision) + mark, when(r.Time), r.Actor, r.Source}
 			})
 		},
-	}, &cobra.Command{
+	}
+}
+
+func newGatewayRollbackCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "rollback [revision]",
 		Short: "Apply an earlier revision of the gateway settings again (default: the one before the one in force)",
 		Args:  cobra.MaximumNArgs(1),
@@ -118,28 +137,34 @@ func addDocumentCmds(a *app, cmd *cobra.Command) {
 			if err != nil {
 				return err
 			}
-			return a.applyDocument(cmd, doc.Content, "rollback "+strconv.Itoa(n))
+			return a.applyDocument(cmd, doc.Content, "rollback "+strconv.Itoa(n), nil)
 		},
-	})
+	}
 }
 
-// applyDocument shows what a gateway document changes, asks for its risk, and applies it. With -o
-// json or yaml it writes one document: the plan, and the revision once applied.
-func (a *app) applyDocument(cmd *cobra.Command, content []byte, source string) error {
+// applyDocument shows what a gateway document changes (planned: the plan of content, if the caller
+// has it), asks for its risk, and applies it. With -o json or yaml it writes one document: the plan,
+// and the revision once applied.
+func (a *app) applyDocument(cmd *cobra.Command, content []byte, source string, planned *api.GatewayPlan) error {
 	s := a.backend()
-	plan, err := s.DiffGateway(cmd.Context(), api.GatewayDocument{Content: content})
-	if err != nil {
-		return err
+	if planned == nil {
+		p, err := s.DiffGateway(cmd.Context(), api.GatewayDocument{Content: content})
+		if err != nil {
+			return err
+		}
+		planned = &p
 	}
+	plan := *planned
 	if !a.structured() || len(plan.Changes) == 0 || len(plan.Problems) > 0 {
 		if err := a.printGatewayPlan(plan); err != nil || len(plan.Changes) == 0 {
 			return err
 		}
 	}
-	if err := a.confirm(cmd, plan.Risk); err != nil {
+	req := api.GatewayApplyRequest{GatewayDocument: api.GatewayDocument{Content: content}, Source: source}
+	if err := a.confirm(cmd, plan.Risk, &req.Confirmed); err != nil {
 		return err
 	}
-	rev, err := s.ApplyGateway(cmd.Context(), api.GatewayApplyRequest{GatewayDocument: api.GatewayDocument{Content: content}, Source: source, Confirmed: true})
+	rev, err := s.ApplyGateway(cmd.Context(), req)
 	if err != nil {
 		return err
 	}
@@ -230,7 +255,7 @@ func newGatewayEditCmd(a *app) *cobra.Command {
 					content = withProblems(clean, plan.Problems)
 					continue
 				}
-				if err := a.applyDocument(cmd, clean, "edit"); err != nil {
+				if err := a.applyDocument(cmd, clean, "edit", &plan); err != nil {
 					keep = true
 					return fmt.Errorf("%w; your changes are in %s", err, path)
 				}

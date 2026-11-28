@@ -1,0 +1,2 @@
+password: <redacted>
+replicas: 2

@@ -138,7 +138,8 @@ own repairs and resumes).
 `KARGA_SOCKET` point the CLI at another socket.
 
 Operations run in the server, not in the CLI. Ctrl-C (or a lost connection) stops only the
-progress output: the operation goes on to its end, and `karga events -f <release>` follows it. A
+progress output: the operation goes on to its end, and `karga events -f <release>` follows it
+(it prints a running operation once more when it ends). A
 volume backup is the exception, as its file is the output: Ctrl-C stops the copy, removes the file
 and exits 7, and the workloads the backup stopped start again. When
 the server stops (`systemctl stop`, a reboot) it waits up to 5 minutes for running operations. If
@@ -248,7 +249,8 @@ demo  1         deployed  shop     0.1.0    2026-11-17 17:59:08 +03:00
 
 [Section 6](#6-services-and-the-gateway) exposes it on the host. `karga exec demo web` without a
 command opens an interactive shell; `-it` gives any command a terminal. `karga logs demo -f`
-follows the logs; `karga status demo --watch` refreshes every two seconds.
+follows the logs; `karga status demo --watch` refreshes every two seconds (`--interval`, and
+`--count` to stop after so many refreshes).
 
 Installing the same package with the same values again does nothing: `Release "demo" is already
 installed with the same package and values`.
@@ -465,7 +467,7 @@ listener pg added (tcp on port 15432)
 
   | Option | Listeners | Effect |
   |--------|-----------|--------|
-  | `--timeout` | http, https | Longest a request may take; the gateway answers 504 after it. Default: none. |
+  | `--timeout` | http, https | Longest a request may take; the gateway answers 504 after it. Default: none. (Not the `--timeout` of `install` and `upgrade`, which waits for workloads to become ready.) |
   | `--idle-timeout` | all | Closes a request, a WebSocket or a tcp connection that sends nothing either way for that long. Default: 5m (http), 1h (tcp). |
   | `--max-body` | http, https | Largest request body, at most `16Mi`; 413 beyond it. The gateway holds each request's body in memory, and its memory is 128Mi: a few large uploads at once can exhaust it. Larger uploads are limited by the application. |
   | `--rate-limit` | http, https | Requests per second or minute (`100/s`, `600/m`) for the whole listener (an https listener counts each host on its own); 429 beyond it. |
@@ -843,8 +845,11 @@ volume postgres-data of db is back as it was before its last restore (postgres w
   point in `KARGA_HOME/restore-points/<release>/<volume>.tar.gz` (one per volume, each restore
   replaces it); `karga volume undo-restore` puts them back the same way. Without room for it under
   `KARGA_HOME` the restore changes nothing and says so; `--no-restore-point` restores without one
-  (the current files are then lost). `uninstall --delete-volumes` removes restore points with the
-  volumes.
+  and removes the volume's older one, which would undo to the files of before an earlier restore
+  (the current files are then lost, and undo-restore has nothing to put back).
+  A volume karga deletes takes its restore point along: `uninstall --delete-volumes`, and an
+  upgrade or rollback that removes a `retention: delete` volume. A volume kept (`retention: retain`,
+  uninstall without `--delete-volumes`) keeps its restore point.
 - **Interruptions.** A restore asks first (`--yes` in scripts), receives the whole backup and keeps it
   under `KARGA_HOME` until it is done: it goes to the end if the CLI goes away, and if karga-server
   stops in the middle it finishes the restore when it starts again (without taking the restore point
@@ -941,7 +946,7 @@ Tables are colored on a terminal (`--color never`, `NO_COLOR=1` or `TERM=dumb` t
 
 Every command takes `-o text` (the default, for people), `-o json` or `-o yaml`. Streams
 (`status --watch`, `events -f`) write one JSON document per line, or YAML documents separated by
-`---`. `logs` always writes the containers' lines. The JSON and YAML shapes are the API's views:
+`---`. `logs` writes the containers' own lines: it refuses `-o json` and `-o yaml` (exit 2). The JSON and YAML shapes are the API's views:
 fields are only added within an API major version, never renamed or removed, so scripts may rely
 on them.
 
@@ -955,8 +960,11 @@ Commands that delete data or expose services ask first on a terminal: `uninstall
 restore`, `volume undo-restore`, `gateway set listen` with an address other than loopback, `gateway listener remove`,
 `gateway apply`, `rollback` and `edit` when the change carries a risk, and `upgrade`/`rollback` with
 `--delete-volumes`. `gateway listener add` does not ask: a new listener serves only what is exposed
-on it. In a script (stdin is not a terminal) they need
-`--yes` (`-y`); `--dry-run` shows what they would do. karga-server refuses these requests unless
+on it (it warns when the gateway listens on an address other than loopback, as the listener is then
+reachable from other hosts). In a script (stdin is not a terminal) they need
+`--yes` (`-y`). `--dry-run` shows first what `uninstall`, `upgrade` and `rollback` would do, and
+`gateway diff` what a gateway document changes; the volume commands and the other gateway commands
+have no dry run. karga-server refuses these requests unless
 the client says the user agreed, so no client skips the question.
 
 | Exit code | Meaning |
@@ -967,8 +975,8 @@ the client says the user agreed, so no client skips the question.
 | 3 | karga-server is not running, did not answer in time, went away, or is too old for the request (another API major, or a field or endpoint it does not know) |
 | 4 | The release, revision, resource or image does not exist |
 | 5 | Another operation holds the release, or it exists already |
-| 6 | `karga status`: the release is not deployed and healthy (failed, missing, unhealthy or starting, or a Service routed nowhere) |
-| 7 | karga stopped waiting (Ctrl-C) after its request went out: what it asked for goes on in karga-server (`karga events <release> -f` follows an operation) |
+| 6 | `karga status`: the release is not deployed and healthy (failed, missing, unhealthy or starting, or a Service routed nowhere); with `--watch`, at its last refresh (`--count` reached or Ctrl-C) |
+| 7 | karga stopped waiting (Ctrl-C) after its request went out: what it asked for goes on in karga-server (`karga events <release> -f` follows an operation). Also a timeout (`--request-timeout`) of `pause`, `resume`, `gateway set access-log` and `gateway listener add`/`set`: karga-server may have applied the change, and the message says how to check |
 | other | `karga exec`: the command's own exit code |
 
 ### Common errors

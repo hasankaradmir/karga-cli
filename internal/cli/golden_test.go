@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,13 +80,44 @@ func TestGoldenOutput(t *testing.T) {
 			f.health = api.State{Container: "running", Ready: true}
 			f.exposed = []api.Exposed{{Listener: "https:443", Route: "shop.example.com/", Release: "r", Service: "web:80", Upstream: "127.0.0.1:41000"}}
 		}, []string{"gateway", "status"}},
+		{"reconcile", func(f *fake) {
+			f.recon = &api.ReconcileResult{Release: "r", Actions: []api.Step{
+				{Kind: "Workload", Name: "web", Action: "start", Status: "done"},
+				{Kind: "Volume", Name: "data", Action: "create", Status: "failed", Error: "volume data is missing"}},
+				GaveUp: map[string]string{"Workload/worker": "boom"}}
+		}, []string{"reconcile", "r"}},
+		{"gateway-listener-list", func(f *fake) {
+			f.settings = api.Settings{Listeners: []api.Listener{{Name: "http", Port: 80, Protocol: "http"}, {Name: "pg", Port: 15432, Protocol: "tcp"}}}
+			f.users = map[string][]string{"http": {"shop/web", "blog/web"}}
+		}, []string{"gateway", "listener", "list"}},
+		{"gateway-history", func(f *fake) {
+			f.gatewayRevs = []api.GatewayRevision{{Revision: 1, Time: at, Actor: "alice", Source: "listener add http"}, {Revision: 2, Time: at.Add(time.Hour), Actor: "bob", Source: "apply"}}
+		}, []string{"gateway", "history"}},
+		{"get-values", func(*fake) {}, []string{"get", "values", "r"}},
+		{"get-manifest", func(*fake) {}, []string{"get", "manifest", "r"}},
+		{"get-notes", func(*fake) {}, []string{"get", "notes", "r"}},
+		{"volume-backup", func(f *fake) { f.backup = "TARBALL" }, []string{"volume", "backup", "r", "data", "b.tgz"}},
+		{"volume-restore", func(*fake) {}, []string{"volume", "restore", "r", "data", "in.tgz", "--yes"}},
+		{"volume-restore-no-point", func(*fake) {}, []string{"volume", "restore", "r", "data", "in.tgz", "--yes", "--no-restore-point"}},
+		{"volume-undo-restore", func(*fake) {}, []string{"volume", "undo-restore", "r", "data", "--yes"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			golden, err := filepath.Abs(filepath.Join("testdata", "golden", c.name+".txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The volume commands take files: they run in a directory of their own, with relative
+			// names, so their output does not hold a temporary path.
+			if strings.HasPrefix(c.name, "volume-") {
+				t.Chdir(t.TempDir())
+				if err := os.WriteFile("in.tgz", []byte("TARBALL"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
 			e := newCLIEnv(t)
 			c.setup(e.f)
 			out, _ := e.run(append(c.args, "--color", "never")...) // some cases exit non-zero by design
-			golden := filepath.Join("testdata", "golden", c.name+".txt")
 			if *update {
 				if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
 					t.Fatal(err)

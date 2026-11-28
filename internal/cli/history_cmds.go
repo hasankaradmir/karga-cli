@@ -99,6 +99,11 @@ func revisionArg(args []string, i int) (int, error) {
 
 func newGetCmd(a *app) *cobra.Command {
 	cmd := &cobra.Command{Use: "get", Short: "Show stored information about a release"}
+	cmd.AddCommand(newGetValuesCmd(a), newGetManifestCmd(a), newGetNotesCmd(a))
+	return cmd
+}
+
+func newGetValuesCmd(a *app) *cobra.Command {
 	var all bool
 	values := &cobra.Command{
 		Use:   "values <release> [revision]",
@@ -126,7 +131,10 @@ func newGetCmd(a *app) *cobra.Command {
 		},
 	}
 	values.Flags().BoolVar(&all, "all", false, "show the merged values including package defaults")
+	return values
+}
 
+func newGetManifestCmd(a *app) *cobra.Command {
 	manifest := &cobra.Command{
 		Use:   "manifest <release> [revision]",
 		Short: "Show the resources a revision deployed (secret values redacted)",
@@ -156,6 +164,10 @@ func newGetCmd(a *app) *cobra.Command {
 			return nil
 		},
 	}
+	return manifest
+}
+
+func newGetNotesCmd(a *app) *cobra.Command {
 	notes := &cobra.Command{
 		Use:   "notes <release> [revision]",
 		Short: "Show the package's notes (NOTES.txt) for a revision",
@@ -180,8 +192,7 @@ func newGetCmd(a *app) *cobra.Command {
 			return err
 		},
 	}
-	cmd.AddCommand(values, manifest, notes)
-	return cmd
+	return notes
 }
 
 func newDiffCmd(a *app) *cobra.Command {

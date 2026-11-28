@@ -234,7 +234,7 @@ func TestStreams(t *testing.T) {
 		t.Fatalf("restore: %s %q", out, e.f.restored)
 	}
 	if out := e.mustRun("volume", "restore", "--yes", "--merge", "--no-restore-point", "r", "data", file); strings.Contains(out, "undo-restore") ||
-		!e.f.restoreReq.Merge || !e.f.restoreReq.NoRestorePoint {
+		!strings.Contains(out, "It has no restore point now") || !e.f.restoreReq.Merge || !e.f.restoreReq.NoRestorePoint {
 		t.Fatalf("restore --merge --no-restore-point: %s %+v", out, e.f.restoreReq)
 	}
 	if out := e.mustRun("volume", "undo-restore", "--yes", "r", "data"); !strings.Contains(out, "back as it was before its last restore (db was down for 2s)") {
@@ -360,6 +360,8 @@ func TestDynamicCompletion(t *testing.T) {
 	e.f.releases = []api.Release{{Name: "redis1"}, {Name: "web1"}}
 	e.f.applied = []api.AppliedResource{{Kind: "Workload", Name: "api"}, {Kind: "Workload", Name: "web"}, {Kind: "Volume", Name: "data"}}
 	e.f.history = []api.Revision{{Number: 1, Status: api.RevisionDeployed}, {Number: 2, Status: api.RevisionDeployed}}
+	e.f.settings = api.Settings{Listeners: []api.Listener{{Name: "http", Port: 80, Protocol: "http"}, {Name: "pg", Port: 15432, Protocol: "tcp"}}}
+	e.f.gatewayRevs = []api.GatewayRevision{{Revision: 1, Source: "listener add http"}, {Revision: 2, Source: "apply"}}
 	for _, tc := range []struct {
 		args []string
 		want string
@@ -370,6 +372,11 @@ func TestDynamicCompletion(t *testing.T) {
 		{[]string{"volume", "backup", "web1", ""}, "data"},
 		{[]string{"rollback", "web1", ""}, "2 1"},
 		{[]string{"events", ""}, "redis1 web1"},
+		{[]string{"gateway", "listener", "set", ""}, "http pg"},
+		{[]string{"gateway", "listener", "remove", "p"}, "pg"},
+		{[]string{"gateway", "rollback", ""}, "2 1"},
+		{[]string{"gateway", "get", "--revision", ""}, "2 1"},
+		{[]string{"gateway", "listener", "add", "x", "--protocol", ""}, "tcp http https"},
 	} {
 		if got := complete(tc.args...); got != tc.want {
 			t.Errorf("complete %v: got %q, want %q", tc.args, got, tc.want)
@@ -403,6 +410,18 @@ func TestExitCodes(t *testing.T) {
 	e.f.status.Resources[0].Health = "unhealthy"
 	if c := code("status", "r"); c != ExitUnhealthy {
 		t.Fatalf("unhealthy status: %d", c)
+	}
+	// --watch ends as status does: unhealthy at its last refresh is exit 6, in text and -o json.
+	if c := code("status", "r", "--watch", "--count", "1", "--interval", "1ms"); c != ExitUnhealthy {
+		t.Fatalf("status --watch, unhealthy: %d", c)
+	}
+	if c := code("status", "r", "--watch", "--count", "1", "--interval", "1ms", "-o", "json"); c != ExitUnhealthy {
+		t.Fatalf("status --watch -o json, unhealthy: %d", c)
+	}
+	for _, args := range [][]string{{"--watch", "--interval", "0"}, {"--watch", "--interval", "-1s"}, {"--count", "2"}} {
+		if c := code(append([]string{"status", "r"}, args...)...); c != ExitUsage {
+			t.Fatalf("status %v: %d", args, c)
+		}
 	}
 	e.f.status.Resources[0].Health = "healthy"
 	e.f.status.Resources = append(e.f.status.Resources, api.ResourceStatus{Kind: "Service", Name: "web", Desired: "applied", Actual: api.ActualNotRouted})
@@ -614,6 +633,15 @@ if [ -e "$D/fix" ]; then sed -i.bak 's/accessLog: bad/accessLog: false/' "$1"; f
 	if out := e.mustRun("gateway", "edit"); !strings.Contains(out, "gateway settings applied (revision 7)") {
 		t.Fatalf("edit:\n%s", out)
 	}
+	diffs := 0
+	for _, c := range e.f.calls {
+		if strings.HasPrefix(c, "diff ") {
+			diffs++
+		}
+	}
+	if diffs != 2 { // the document with problems, then the fixed one: each asked once
+		t.Fatalf("edit asked for %d diffs: %v", diffs, e.f.calls)
+	}
 	seen, _ := os.ReadFile(filepath.Join(dir, "seen"))
 	if !strings.HasPrefix(string(seen), "# problem: spec.accessLog: cannot unmarshal bad\n") {
 		t.Fatalf("the second run must show the problems on top:\n%s", seen)
@@ -655,5 +683,133 @@ func TestServerTextIsPrintable(t *testing.T) {
 	out, _ := e.run("reconcile", "r")
 	if strings.ContainsRune(out, 0x1b) || !strings.Contains(out, `boom\x1b]0;pwned\x07`) {
 		t.Fatalf("reconcile output: %q", out)
+	}
+}
+
+// events -f shows an operation it showed running once more when it ends, and every operation that
+// began meanwhile, however many: it asks from the oldest one still running, newest first.
+func TestEventsFollowShowsTheEnd(t *testing.T) {
+	e := newCLIEnv(t)
+	followEvery = time.Millisecond
+	t.Cleanup(func() { followEvery = 2 * time.Second })
+	op := func(id int64, status string) api.Operation {
+		return api.Operation{ID: id, Release: "r", Type: "upgrade", Status: status}
+	}
+	var asked []int64
+	turn := 0
+	e.f.eventsFn = func(req api.EventsRequest) ([]api.Operation, error) {
+		asked = append(asked, req.AfterID)
+		turn++
+		switch turn {
+		case 1: // the first page: 2 ended, 3 running
+			return []api.Operation{op(3, "running"), op(2, "succeeded")}, nil
+		case 2: // 3 ended, and 150 more began (newest first)
+			out := []api.Operation{}
+			for id := int64(153); id >= 4; id-- {
+				out = append(out, op(id, "succeeded"))
+			}
+			return append(out, op(3, "failed")), nil
+		}
+		return nil, errors.New("done")
+	}
+	out, _ := e.run("events", "r", "-f", "-o", "json")
+	if len(asked) < 2 || asked[1] != 2 { // from the oldest one still running (3)
+		t.Fatalf("asked after %v", asked)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var ends, news int
+	for _, l := range lines {
+		var o api.Operation
+		if err := json.Unmarshal([]byte(l), &o); err != nil {
+			t.Fatalf("line %q: %v", l, err)
+		}
+		switch {
+		case o.ID == 3 && o.Status == "failed":
+			ends++
+		case o.ID > 3:
+			news++
+		}
+	}
+	if ends != 1 || news != 150 {
+		t.Fatalf("end shown %d times, %d new operations:\n%s", ends, news, out)
+	}
+}
+
+// A timeout of a command bounded by --request-timeout that changes something may come after
+// karga-server applied it: exit 7 and how to check. A timed read stays exit 3.
+func TestTimedMutationTimeout(t *testing.T) {
+	e := newCLIEnv(t)
+	e.f.delay = 300 * time.Millisecond
+	for _, args := range [][]string{{"pause", "r"}, {"resume", "r"}, {"gateway", "listener", "add", "pg", "--port", "15432", "--protocol", "tcp"}} {
+		_, err := e.run(append(args, "--request-timeout", "50ms")...)
+		if c := ExitCode(err); c != ExitDetached || !strings.Contains(err.Error(), "may have applied it") || Hint(err) != "" {
+			t.Fatalf("%v: exit %d, %v, hint %q", args, c, err, Hint(err))
+		}
+	}
+	e.f.slow = 300 * time.Millisecond
+	if _, err := e.run("list", "--request-timeout", "50ms"); ExitCode(err) != ExitUnavailable {
+		t.Fatalf("list: exit %d", ExitCode(err))
+	}
+}
+
+// listener add asks nothing but warns when the gateway listens beyond loopback.
+func TestListenerAddWarnsWhenReachable(t *testing.T) {
+	e := newCLIEnv(t)
+	e.f.settings = api.Settings{Listen: []string{"127.0.0.1", "0.0.0.0", "::1"}}
+	e.mustRun("gateway", "listener", "add", "pg", "--port", "15432", "--protocol", "tcp")
+	if want := "warning: listener pg is reachable from other hosts on 0.0.0.0:15432\n"; e.stderr != want {
+		t.Fatalf("stderr %q", e.stderr)
+	}
+	e.f.settings = api.Settings{} // 127.0.0.1
+	e.mustRun("gateway", "listener", "add", "pg2", "--port", "15433", "--protocol", "tcp")
+	if strings.Contains(e.stderr, "warning") {
+		t.Fatalf("stderr %q", e.stderr)
+	}
+}
+
+// logs takes a release, or --gateway without one; -o does not apply to the containers' lines.
+func TestLogsArgs(t *testing.T) {
+	e := newCLIEnv(t)
+	e.f.logs = "line\n"
+	for _, args := range [][]string{{"logs", "--gateway"}, {"logs", "r"}, {"logs", "r", "web", "--tail", "5"}, {"logs", "r", "--proxy"}} {
+		if out, err := e.run(args...); err != nil || out != "line\n" {
+			t.Fatalf("%v: %q %v", args, out, err)
+		}
+	}
+	for _, args := range [][]string{{"logs"}, {"logs", "r", "--gateway"}, {"logs", "r", "-o", "json"}} {
+		if _, err := e.run(args...); ExitCode(err) != ExitUsage {
+			t.Fatalf("%v: exit %d (%v)", args, ExitCode(err), err)
+		}
+	}
+}
+
+// exec without a command opens a shell, which needs a terminal: without one it is a usage error.
+func TestExecShellNeedsATerminal(t *testing.T) {
+	e := newCLIEnv(t)
+	_, err := e.run("exec", "r", "web")
+	if ExitCode(err) != ExitUsage || !strings.Contains(err.Error(), "-t needs a terminal") {
+		t.Fatalf("exec without a command, no terminal: exit %d (%v)", ExitCode(err), err)
+	}
+}
+
+// ExitCode maps each kind of failure to the code USAGE documents.
+func TestExitCodeTable(t *testing.T) {
+	for err, want := range map[error]int{
+		nil:                                           0,
+		errors.New("boom"):                            ExitFailure,
+		usageError{errors.New("x")}:                   ExitUsage,
+		fmt.Errorf("x: %w", api.ErrInvalid):           ExitUsage,
+		fmt.Errorf("x: %w", api.ErrNotRunning):        ExitUnavailable,
+		fmt.Errorf("x: %w", api.ErrIncompatible):      ExitUnavailable,
+		fmt.Errorf("x: %w", api.ErrDisconnected):      ExitUnavailable, // a stream that went away
+		fmt.Errorf("x: %w", context.DeadlineExceeded): ExitUnavailable,
+		fmt.Errorf("x: %w", api.ErrNotFound):          ExitNotFound,
+		fmt.Errorf("x: %w", api.ErrConflict):          ExitConflict,
+		&ExitCodeError{Code: ExitUnhealthy}:           ExitUnhealthy,
+		fmt.Errorf("x: %w", api.ErrDetached):          ExitDetached,
+	} {
+		if got := ExitCode(err); got != want {
+			t.Errorf("%v: %d, want %d", err, got, want)
+		}
 	}
 }

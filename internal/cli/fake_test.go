@@ -53,6 +53,10 @@ type fake struct {
 	uninst   *api.UninstallRequest
 	pkg      *packages.Package // loaded from the archive the CLI sent
 	restored string
+	// eventsFn answers Events when set (events -f tests).
+	eventsFn func(api.EventsRequest) ([]api.Operation, error)
+	// delay is how long each recorded call takes (timeout tests).
+	delay time.Duration
 	// backupReq and restoreReq are the last volume requests.
 	backupReq  api.VolumeBackupRequest
 	restoreReq api.VolumeRestoreRequest
@@ -64,8 +68,10 @@ type fake struct {
 
 func (f *fake) call(name string) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.calls = append(f.calls, name)
+	delay := f.delay
+	f.mu.Unlock()
+	time.Sleep(delay)
 }
 
 func (f *fake) deploy(progress func(api.Event)) (*api.Result, error) {
@@ -205,6 +211,9 @@ func (f *fake) Resume(context.Context, api.ReleaseRequest) error {
 }
 
 func (f *fake) Events(_ context.Context, req api.EventsRequest) ([]api.Operation, error) {
+	if f.eventsFn != nil {
+		return f.eventsFn(req)
+	}
 	if req.AfterID > 0 {
 		return nil, f.err
 	}

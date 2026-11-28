@@ -6,6 +6,8 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- Shell completion of listener names (`gateway listener set`/`remove`), gateway settings revisions
+  (`gateway rollback`, `gateway get --revision`) and listener protocols (`listener add --protocol`).
 - USAGE: the gateway commands that ask first; §16: a transformed `writeOnly` value is not
   recognized. README: `logs` writes raw lines whatever `-o` says.
 - USAGE §11: karga-server logs each operation's end; failed ones at warning level.
@@ -28,6 +30,13 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
   `listener list` shows them in OPTIONS.
 
 ### Changed
+- The help of `--timeout`, `-f` and `-n`/`--tail` says which one a command means: the ready-wait or a
+  listener's request timeout, a values file or `--follow`, events or log lines. No flag changes.
+- `gateway listener add` warns on stderr when the gateway listens on an address other than
+  loopback: the new listener is reachable from other hosts.
+- A timeout (`--request-timeout`) of `pause`, `resume`, `gateway set access-log` or `gateway listener
+  add`/`set` exits 7, not 3: karga-server may have applied the change, and the message says how to
+  check.
 - USAGE §8 rewritten for the new volume backup and restore (what stops, `--live`, replace and `--merge`,
   restore points, interruptions); §2 shows API 4.0, §11 and §16 the new errors and limits.
 - API 4.0 (karga-sdk): `volume backup` stops the workloads writing to the volume by default; `--live`
@@ -80,6 +89,18 @@ All notable changes are listed here, newest first ([Keep a Changelog](https://ke
 - `lint` and `template` know `environmentFrom` (workload variables from Secrets); USAGE §9.
 
 ### Fixed
+- USAGE and README: only `uninstall`, `upgrade` and `rollback` have `--dry-run` (and `gateway diff`
+  previews a document); `logs` refuses `-o json`/`yaml` (exit 2); the `--yes` help names `gateway
+  listener add`, which never asks.
+- `events -f` prints an operation it showed running once more when it ends, and every operation
+  that began meanwhile: it never showed the end, and skipped all but the newest 100.
+- `status --watch` exits 6 when the release is unhealthy at its last refresh (`--count` reached, or
+  Ctrl-C), as `status` does; it always exited 0. `--interval` must be positive (0 asked
+  karga-server in a tight loop) and `--count` needs `--watch` (it was ignored).
+- USAGE: which restore points karga removes with their volumes (karga-server now also removes the
+  one of a `retention: delete` volume an upgrade or rollback deletes).
+- `volume restore --no-restore-point` says that the volume has no restore point now (karga-server
+  removes the older one, which would undo to the files of before an earlier restore).
 - USAGE §14: a release's operations stay after an uninstall (`karga events`); `karga status` of a
   release installed again shows its own repairs only (karga-server).
 - `lint`, `template` and the server's renders stop a template that would exhaust memory, and their

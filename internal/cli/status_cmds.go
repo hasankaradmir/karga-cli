@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -28,6 +29,12 @@ func newStatusCmd(a *app) *cobra.Command {
 		Short: "Compare a release's desired state with the runtime",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			switch {
+			case watch && interval <= 0:
+				return usageError{fmt.Errorf("--interval must be positive, got %s", interval)}
+			case !watch && cmd.Flags().Changed("count"):
+				return usageError{errors.New("--count needs --watch")}
+			}
 			s := a.backend()
 			if !watch {
 				rep, err := a.printStatus(cmd.Context(), s, args[0])
@@ -37,15 +44,23 @@ func newStatusCmd(a *app) *cobra.Command {
 				return err
 			}
 			tty := isTerminal(a.stdout)
-			for n := 1; ; n++ {
+			var last *api.StatusReport // what the watch ends on decides its exit code, as for status
+			end := func() error {
+				if last != nil && !last.Healthy() {
+					return &ExitCodeError{Code: ExitUnhealthy}
+				}
+				return nil
+			}
+			err := poll(cmd.Context(), interval, func(n int) (bool, error) {
 				if a.structured() { // one document per refresh
 					rep, err := s.Status(cmd.Context(), api.ReleaseRequest{Name: args[0]})
 					if err != nil {
-						return err
+						return false, err
 					}
 					if err := a.writeStreamed(rep); err != nil {
-						return err
+						return false, err
 					}
+					last = rep
 				} else {
 					if tty {
 						_, _ = io.WriteString(a.stdout, "\x1b[H\x1b[2J") // clear and redraw
@@ -53,24 +68,23 @@ func newStatusCmd(a *app) *cobra.Command {
 						_, _ = io.WriteString(a.stdout, "\n")
 					}
 					_, _ = fmt.Fprintf(a.stdout, "Every %s: karga status %s    %s\n\n", interval, args[0], time.Now().Format("15:04:05"))
-					if _, err := a.printStatus(cmd.Context(), s, args[0]); err != nil {
-						return err
+					rep, err := a.printStatus(cmd.Context(), s, args[0])
+					if err != nil {
+						return false, err
 					}
+					last = rep
 				}
-				if count > 0 && n >= count {
-					return nil
-				}
-				select {
-				case <-cmd.Context().Done():
-					return nil
-				case <-time.After(interval):
-				}
+				return count > 0 && n >= count, nil
+			})
+			if err != nil {
+				return err
 			}
+			return end()
 		},
 	}
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "refresh until interrupted")
 	cmd.Flags().DurationVar(&interval, "interval", 2*time.Second, "time between refreshes with --watch")
-	cmd.Flags().IntVar(&count, "count", 0, "with --watch, stop after this many refreshes (0: until interrupted)")
+	cmd.Flags().IntVar(&count, "count", 0, "with --watch, stop after this many refreshes (0: until interrupted); exit 6 if the last one is unhealthy")
 	return cmd
 }
 
@@ -133,6 +147,11 @@ func (a *app) printStatus(ctx context.Context, s api.Backend, name string) (*api
 }
 
 func newReconcileCmds(a *app) []*cobra.Command {
+	return []*cobra.Command{newReconcileCmd(a), newPauseCmd(a, "pause", "Stop karga-server from repairing a release (for maintenance)", true),
+		newPauseCmd(a, "resume", "Let karga-server repair a release again", false), newEventsCmd(a)}
+}
+
+func newReconcileCmd(a *app) *cobra.Command {
 	var emptyVolumes bool
 	reconcile := &cobra.Command{
 		Use:   "reconcile <release>",
@@ -177,25 +196,32 @@ func newReconcileCmds(a *app) []*cobra.Command {
 			return err
 		},
 	}
-	pause := func(use, short string, paused bool) *cobra.Command {
-		return &cobra.Command{
-			Use:   use + " <release>",
-			Short: short,
-			Args:  cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				s := a.backend()
-				set := s.Resume
-				if paused {
-					set = s.Pause
-				}
-				if err := set(cmd.Context(), api.ReleaseRequest{Name: args[0]}); err != nil {
-					return err
-				}
-				return a.report(map[string]any{"release": args[0], "paused": paused},
-					"Release %q %sd: karga-server %s repair it.\n", args[0], use, map[bool]string{true: "does not", false: "will"}[paused])
-			},
-		}
+	reconcile.Flags().BoolVar(&emptyVolumes, "empty-volumes", false, "create the release's Volumes missing in Docker, empty")
+	return reconcile
+}
+
+// newPauseCmd makes pause (paused) or resume.
+func newPauseCmd(a *app, use, short string, paused bool) *cobra.Command {
+	return &cobra.Command{
+		Use:   use + " <release>",
+		Short: short,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			s := a.backend()
+			set := s.Resume
+			if paused {
+				set = s.Pause
+			}
+			if err := set(cmd.Context(), api.ReleaseRequest{Name: args[0]}); err != nil {
+				return err
+			}
+			return a.report(map[string]any{"release": args[0], "paused": paused},
+				"Release %q %sd: karga-server %s repair it.\n", args[0], use, map[bool]string{true: "does not", false: "will"}[paused])
+		},
 	}
+}
+
+func newEventsCmd(a *app) *cobra.Command {
 	var limit int
 	var follow bool
 	events := &cobra.Command{
@@ -227,47 +253,88 @@ func newReconcileCmds(a *app) []*cobra.Command {
 					return err
 				}
 			}
-			var last int64
-			if len(ops) > 0 {
-				last = ops[len(ops)-1].ID
+			if !follow {
+				return nil
 			}
-			for follow {
-				select {
-				case <-cmd.Context().Done():
-					return nil
-				case <-time.After(2 * time.Second):
-				}
-				more, err := s.Events(cmd.Context(), api.EventsRequest{Name: name, AfterID: last, Limit: 100})
-				if err != nil {
-					return err
-				}
-				slices.Reverse(more)
-				if a.structured() {
-					for _, op := range more {
-						if err := a.writeStreamed(op); err != nil {
-							return err
-						}
-					}
-				} else {
-					for _, row := range eventRows(more) {
-						_, _ = fmt.Fprintln(a.stdout, strings.Join(row, "  "))
-					}
-				}
-				if len(more) > 0 {
-					last = more[len(more)-1].ID
-				}
-			}
-			return nil
+			return a.followEvents(cmd.Context(), s, name, ops)
 		},
 	}
-	events.Flags().IntVarP(&limit, "limit", "n", 20, "how many events")
-	events.Flags().BoolVarP(&follow, "follow", "f", false, "keep printing new events")
-	reconcile.Flags().BoolVar(&emptyVolumes, "empty-volumes", false, "create the release's Volumes missing in Docker, empty")
-	return []*cobra.Command{reconcile, pause("pause", "Stop karga-server from repairing a release (for maintenance)", true),
-		pause("resume", "Let karga-server repair a release again", false), events}
+	events.Flags().IntVarP(&limit, "limit", "n", 20, "how many of the newest events (logs counts lines with --tail)")
+	events.Flags().BoolVarP(&follow, "follow", "f", false, "keep printing new events, and each running one again when it ends")
+	return events
 }
 
 // eventRows renders operations for karga events; running ones show as such.
+// followEvery is how often events -f asks for news.
+var followEvery = 2 * time.Second
+
+// followEvents prints, every followEvery, the operations that began after those shown (ops), and
+// once more each one shown running when it has ended. It asks from the oldest one still running,
+// so one request has both; MaxEvents bounds it.
+func (a *app) followEvents(ctx context.Context, s api.Backend, name string, ops []api.Operation) error {
+	running := map[int64]bool{}
+	var last int64
+	seen := func(ops []api.Operation) {
+		for _, op := range ops {
+			if op.Status == opRunning {
+				running[op.ID] = true
+			} else {
+				delete(running, op.ID)
+			}
+			last = max(last, op.ID)
+		}
+	}
+	seen(ops)
+	return poll(ctx, followEvery, func(int) (bool, error) {
+		after := last
+		for id := range running {
+			after = min(after, id-1)
+		}
+		more, err := s.Events(ctx, api.EventsRequest{Name: name, AfterID: after, Limit: api.MaxEvents})
+		if err != nil {
+			return false, err
+		}
+		slices.Reverse(more)
+		var news []api.Operation
+		for _, op := range more {
+			if op.ID > last || (running[op.ID] && op.Status != opRunning) {
+				news = append(news, op)
+			}
+		}
+		seen(news)
+		if a.structured() {
+			for _, op := range news {
+				if err := a.writeStreamed(op); err != nil {
+					return false, err
+				}
+			}
+			return false, nil
+		}
+		for _, row := range eventRows(news) {
+			_, _ = fmt.Fprintln(a.stdout, strings.Join(row, "  "))
+		}
+		return false, nil
+	})
+}
+
+// poll calls fn (with its turn, from 1), then waits every, until fn is done or fails or ctx ends
+// (which is not a failure: Ctrl-C ends a watch).
+func poll(ctx context.Context, every time.Duration, fn func(n int) (done bool, err error)) error {
+	for n := 1; ; n++ {
+		if done, err := fn(n); done || err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(every):
+		}
+	}
+}
+
+// opRunning is the status of an operation that has not ended.
+const opRunning = "running"
+
 func eventRows(ops []api.Operation) [][]string {
 	var rows [][]string
 	for _, op := range ops {

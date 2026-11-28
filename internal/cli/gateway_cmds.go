@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"net"
+	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,7 +21,15 @@ func newGatewayCmd(a *app) *cobra.Command {
 			"(set listen, default 127.0.0.1) and on which ports (listeners); packages only attach their\n" +
 			"Services to listeners by name and can open nothing themselves.",
 	}
-	cmd.AddCommand(&cobra.Command{
+	set := &cobra.Command{Use: "set", Short: "Change a gateway setting"}
+	set.AddCommand(newGatewayAccessLogCmd(a), newGatewayListenCmd(a))
+	cmd.AddCommand(newGatewayStatusCmd(a), set, newListenerCmd(a))
+	addDocumentCmds(a, cmd)
+	return cmd
+}
+
+func newGatewayStatusCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "status",
 		Short: "Show the gateway's health and the listeners and routes it serves",
 		Args:  cobra.NoArgs,
@@ -70,9 +80,11 @@ func newGatewayCmd(a *app) *cobra.Command {
 			}
 			return a.table("LISTENER\tROUTE\tRELEASE\tSERVICE\tUPSTREAM", rows)
 		},
-	})
-	set := &cobra.Command{Use: "set", Short: "Change a gateway setting"}
-	set.AddCommand(&cobra.Command{
+	}
+}
+
+func newGatewayAccessLogCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:       "access-log on|off",
 		Short:     "Log every request and connection the gateway handles (off by default)",
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
@@ -84,8 +96,11 @@ func newGatewayCmd(a *app) *cobra.Command {
 			}
 			return a.report(map[string]any{"accessLog": args[0] == "on"}, "gateway access log %s\n", args[0])
 		},
-	})
-	set.AddCommand(&cobra.Command{
+	}
+}
+
+func newGatewayListenCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "listen <ip>[,<ip>...]",
 		Short: "Set the host addresses every listener binds (default 127.0.0.1; 0.0.0.0 is every interface)",
 		Args:  cobra.ExactArgs(1),
@@ -95,20 +110,16 @@ func newGatewayCmd(a *app) *cobra.Command {
 				addrs = append(addrs, strings.TrimSpace(ip))
 			}
 			req := api.GatewayListenRequest{Addresses: addrs}
-			if err := a.confirm(cmd, req.Risk()); err != nil {
+			if err := a.confirm(cmd, req.Risk(), &req.Confirmed); err != nil {
 				return err
 			}
-			req.Confirmed = true
 			s := a.backend()
 			if err := s.SetGatewayListen(cmd.Context(), req); err != nil {
 				return err
 			}
 			return a.report(map[string]any{"listen": addrs}, "gateway listens on %s\n", strings.Join(addrs, ", "))
 		},
-	})
-	cmd.AddCommand(set, newListenerCmd(a))
-	addDocumentCmds(a, cmd)
-	return cmd
+	}
 }
 
 // printGatewayPlan shows what applying a gateway document changes; problems make the command fail
@@ -148,7 +159,7 @@ func (a *app) printGatewayPlan(plan api.GatewayPlan) error {
 
 // optionFlags adds the listener option flags to cmd, written to o.
 func optionFlags(cmd *cobra.Command, o *api.ListenerOptions) {
-	cmd.Flags().StringVar(&o.Timeout, "timeout", "", "http, https: longest a request may take, e.g. 30s (504 after it; default none)")
+	cmd.Flags().StringVar(&o.Timeout, "timeout", "", "the listener's request timeout (http, https): longest a request may take, e.g. 30s (504 after it; default none); not the ready-wait --timeout of install and upgrade")
 	cmd.Flags().StringVar(&o.IdleTimeout, "idle-timeout", "", "close a request or tcp connection idle this long, e.g. 10m (default 5m for http, 1h for tcp)")
 	cmd.Flags().StringVar(&o.MaxBody, "max-body", "", "http, https: largest request body, e.g. 10Mi, at most 16Mi (413 beyond it; default none)")
 	cmd.Flags().StringVar(&o.RateLimit, "rate-limit", "", "http, https: requests per second or minute, e.g. 100/s (429 beyond it; default none)")
@@ -185,7 +196,12 @@ func optionsText(o api.ListenerOptions) string {
 
 func newListenerCmd(a *app) *cobra.Command {
 	cmd := &cobra.Command{Use: "listener", Short: "Define the ports services can be exposed on"}
-	cmd.AddCommand(&cobra.Command{
+	cmd.AddCommand(newListenerListCmd(a), newListenerAddCmd(a), newListenerSetCmd(a), newListenerRemoveCmd(a))
+	return cmd
+}
+
+func newListenerListCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "list",
 		Short: "List the listeners and the services using them",
 		Args:  cobra.NoArgs,
@@ -200,7 +216,10 @@ func newListenerCmd(a *app) *cobra.Command {
 				return []string{l.Name, strconv.Itoa(l.Port), l.Protocol, optionsText(l.ListenerOptions), strings.Join(users[l.Name], ", ")}
 			})
 		},
-	})
+	}
+}
+
+func newListenerAddCmd(a *app) *cobra.Command {
 	var l api.Listener
 	add := &cobra.Command{
 		Use:   "add <name> --port <port> --protocol tcp|http|https",
@@ -212,6 +231,13 @@ func newListenerCmd(a *app) *cobra.Command {
 			if err := s.AddGatewayListener(cmd.Context(), l); err != nil {
 				return err
 			}
+			// It asks nothing (a listener serves only what is exposed on it), but says when it is open
+			// to other hosts; the settings are read only for that.
+			if settings, _, err := s.GatewaySettings(cmd.Context()); err == nil {
+				if open := reachable(settings.Listen, l.Port); len(open) > 0 {
+					_, _ = fmt.Fprintf(a.stderr, "warning: listener %s is reachable from other hosts on %s\n", l.Name, strings.Join(open, ", "))
+				}
+			}
 			return a.report(l, "listener %s added (%s on port %d)\n", l.Name, l.Protocol, l.Port)
 		},
 	}
@@ -220,6 +246,10 @@ func newListenerCmd(a *app) *cobra.Command {
 	_ = add.MarkFlagRequired("port")
 	_ = add.MarkFlagRequired("protocol")
 	optionFlags(add, &l.ListenerOptions)
+	return add
+}
+
+func newListenerSetCmd(a *app) *cobra.Command {
 	var opts api.ListenerOptions
 	set := &cobra.Command{
 		Use:   "set <name> [--timeout d] [--idle-timeout d] [--max-body size] [--rate-limit n/s] [--proxy-protocol v1|v2]",
@@ -253,22 +283,37 @@ func newListenerCmd(a *app) *cobra.Command {
 		},
 	}
 	optionFlags(set, &opts)
-	cmd.AddCommand(add, set, &cobra.Command{
+	return set
+}
+
+func newListenerRemoveCmd(a *app) *cobra.Command {
+	return &cobra.Command{
 		Use:   "remove <name>",
 		Short: "Remove a listener no service uses",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := api.GatewayListenerRequest{Name: args[0]}
-			if err := a.confirm(cmd, req.Risk()); err != nil {
+			if err := a.confirm(cmd, req.Risk(), &req.Confirmed); err != nil {
 				return err
 			}
-			req.Confirmed = true
 			s := a.backend()
 			if err := s.RemoveGatewayListener(cmd.Context(), req); err != nil {
 				return err
 			}
 			return a.report(map[string]any{"listener": args[0], "removed": true}, "listener %s removed\n", args[0])
 		},
-	})
-	return cmd
+	}
+}
+
+// reachable are the addresses of listen, with port, that other hosts can reach: every one but a
+// loopback address (no listen is 127.0.0.1).
+func reachable(listen []string, port int) []string {
+	var out []string
+	for _, ip := range listen {
+		if a, err := netip.ParseAddr(ip); err == nil && a.IsLoopback() {
+			continue
+		}
+		out = append(out, net.JoinHostPort(ip, strconv.Itoa(port)))
+	}
+	return out
 }

@@ -16,9 +16,17 @@ import (
 var errAborted = errors.New("aborted")
 
 // confirm asks the user to agree to risk, a request's Risk (what it changes that cannot be changed
-// back; empty: nothing to ask): on a terminal it asks, otherwise (a script) it needs --yes. The
-// caller then sets the request's Confirmed, which karga-server requires.
-func (a *app) confirm(cmd *cobra.Command, risk string) error {
+// back; empty: nothing to ask): on a terminal it asks, otherwise (a script) it needs --yes. Agreed,
+// it sets *confirmed, the request's Confirmed that karga-server requires.
+func (a *app) confirm(cmd *cobra.Command, risk string, confirmed *bool) error {
+	if err := a.agree(cmd, risk); err != nil {
+		return err
+	}
+	*confirmed = true
+	return nil
+}
+
+func (a *app) agree(cmd *cobra.Command, risk string) error {
 	if a.yes || risk == "" {
 		return nil
 	}

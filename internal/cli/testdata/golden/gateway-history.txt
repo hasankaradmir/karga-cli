@@ -1,0 +1,3 @@
+REVISION      TIME                        ACTOR  SOURCE
+1             2026-11-18 09:30:00 +00:00  alice  listener add http
+2 (in force)  2026-11-18 10:30:00 +00:00  bob    apply
